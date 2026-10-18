@@ -3,11 +3,10 @@
 الحالة: المراحل 1–4 (هيكل المشروع وسير GitHub Actions، نموذج الشجرة والتراجع/الإعادة، مولّد HTML/CSS، مصدّر ZIP) داخل وحدة `core`.
 واجهة التطبيق (`app`) ما زالت هيكلًا فقط. لم يُبنَ المشروع بعد؛ أول تحقق فعلي هو GitHub Actions.
 
-## التشغيل الأول (مرة واحدة)
+## التشغيل
 1. ارفع محتويات هذا المجلد إلى مستودع GitHub (الفرع `main`).
-2. من تبويب Actions شغّل **Bootstrap Gradle Wrapper** يدويًا.
-3. نزّل الـ Artifact `gradle-wrapper-files`، وضع `gradlew` و`gradlew.bat` في جذر المستودع، ومجلد `gradle/wrapper/` داخل `gradle/` (بجانب `libs.versions.toml`)، ثم ارفعها. 
-4. سيعمل **Build Debug APK** تلقائيًا (أو يدويًا). نزّل `app-debug-apk` من نتائج التشغيل.
+2. سير **Build Debug APK** يعمل تلقائيًا. إن لم يكن Gradle Wrapper في المستودع يولّده بنفسه لهذا التشغيل، ويرفع ملفاته كـ Artifact باسم `gradle-wrapper-files` لتضيفها إلى المستودع (اختياري لكنه مستحسن).
+3. نزّل `app-debug-apk` من نتائج التشغيل.
 
 ## الإصدارات المثبّتة ومصادرها
 - AGP 9.1.1 → Gradle 9.3.1، JDK 17، Build Tools 36.0.0، API 37: developer.android.com/build/releases/agp-9-1-0-release-notes
