@@ -176,8 +176,7 @@ class SiteExporterTest {
         val d = doc(img("i1", "assets/images/a.png"), img("i2", "assets/images/b.png"))
         val assets = MapAssets(mapOf("assets/images/a.png" to ByteArray(60_000), "assets/images/b.png" to ByteArray(60_000)))
         val (r, _) = exportBytes(d, assets, ExportLimits(maxAssetBytes = 100_000, maxTotalBytes = 100_000))
-        assertIs<ExportResult.Failure>(r)
-        assertEquals(ExportError.TOTAL_TOO_LARGE, (r as ExportResult.Failure).error)
+        assertEquals(ExportError.TOTAL_TOO_LARGE, assertIs<ExportResult.Failure>(r).error)
     }
 
     @Test

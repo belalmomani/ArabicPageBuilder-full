@@ -116,7 +116,10 @@ class HtmlGeneratorTest {
                 el("c", ElementType.LINK, mapOf("text" to "z", "href" to "//evil.com")),
             ),
         )
-        assertFalse(site.indexHtml.contains("href="))
+        // في <head> يوجد <link href="css/style.css"> مشروع، لذا نفحص وسوم <a> والقيم الخطرة بدل أي "href=".
+        assertFalse(site.indexHtml.contains("<a "))
+        assertFalse(site.indexHtml.contains("javascript:"))
+        assertFalse(site.indexHtml.contains("evil.com"))
         assertEquals(3, site.warnings.count { it.code == WarningCode.INVALID_LINK })
     }
 
