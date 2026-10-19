@@ -68,6 +68,15 @@ jobs:
       - name: بناء Debug APK
         run: ./gradlew --no-daemon assembleDebug
 
+      - name: بصمة توقيع APK (يجب أن تبقى ثابتة بين الإصدارات)
+        run: |
+          APKSIGNER="$(ls -d "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -n 1)"
+          "$APKSIGNER" verify --print-certs app/build/outputs/apk/debug/*.apk | tee signature.txt
+          {
+            echo "### بصمة توقيع APK"
+            grep "SHA-256" signature.txt || true
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: رفع تقارير الاختبار
         if: always()
         uses: actions/upload-artifact@v4

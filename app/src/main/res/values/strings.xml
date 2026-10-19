@@ -1,6 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">منشئ الصفحات العربي</string>
-    <string name="skeleton_notice">هيكل المشروع فقط (المرحلة 1). لا توجد ميزات بعد.</string>
-    <string name="schema_version_label">إصدار صيغة المشروع: %1$d</string>
 </resources>

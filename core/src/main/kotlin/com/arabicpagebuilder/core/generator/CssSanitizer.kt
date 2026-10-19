@@ -49,6 +49,9 @@ object CssSanitizer {
         return CssResult(ok, bad)
     }
 
+    /** هل [value] مقبولة للمفتاح [key] (فارغ = غير صالح هنا؛ المستدعي يعامل الفارغ كحذف). */
+    fun isValid(key: String, value: String): Boolean = key in styleKeys && convertOne(key, value.trim()) != null
+
     private fun convertOne(key: String, v: String): String? = when (key) {
         "color" -> if (color.matches(v)) "color: $v" else null
         "background" -> if (color.matches(v)) "background-color: $v" else null
