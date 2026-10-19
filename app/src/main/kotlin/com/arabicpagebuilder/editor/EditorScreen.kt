@@ -144,7 +144,7 @@ fun EditorScreen(container: AppContainer, state: EditorState) {
         Box(Modifier.weight(1f).fillMaxWidth()) {
             when (tab) {
                 Tab.DESIGN -> DesignTab(state, panel, { panel = it }, onPickImage = { pickImage.launch(arrayOf("image/*")) })
-                Tab.PREVIEW -> PreviewTab(state, container.prefs.allowExternalPreview) { container.prefs.setAllowExternalPreview(it) }
+                Tab.PREVIEW -> PreviewTab(state, container.prefs.allowExternalPreview) { container.prefs.updateAllowExternalPreview(it) }
                 Tab.CODE -> CodeTab(state)
             }
         }

@@ -48,7 +48,7 @@ class AppPrefs(context: Context) {
     var allowExternalPreview: Boolean by mutableStateOf(sp.getBoolean(KEY_EXTERNAL, false))
         private set
 
-    fun setAllowExternalPreview(value: Boolean) {
+    fun updateAllowExternalPreview(value: Boolean) {
         allowExternalPreview = value
         sp.edit().putBoolean(KEY_EXTERNAL, value).apply()
     }

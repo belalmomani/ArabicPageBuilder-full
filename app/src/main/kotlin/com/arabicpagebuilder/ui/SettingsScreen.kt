@@ -43,7 +43,7 @@ fun SettingsScreen(container: AppContainer) {
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
-            Switch(checked = container.prefs.allowExternalPreview, onCheckedChange = { container.prefs.setAllowExternalPreview(it) })
+            Switch(checked = container.prefs.allowExternalPreview, onCheckedChange = { container.prefs.updateAllowExternalPreview(it) })
         }
         Text("إصدار التطبيق: $versionName", style = MaterialTheme.typography.bodySmall)
         Text("المشاريع تُحفظ على جهازك فقط. لا توجد حسابات ولا خدمات سحابية.", style = MaterialTheme.typography.bodySmall)
