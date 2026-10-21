@@ -18,7 +18,7 @@ android {
         minSdk = 26
         targetSdk = 36
         versionCode = buildMinutes
-        versionName = "0.5.0 (build $ciRun)"
+        versionName = "0.5.1 (build $ciRun)"
     }
 
     // مفتاح توقيع ثابت داخل المستودع (مفتاح debug غير سري). لولاه يولّد كل تشغيل على GitHub مفتاحًا عشوائيًا

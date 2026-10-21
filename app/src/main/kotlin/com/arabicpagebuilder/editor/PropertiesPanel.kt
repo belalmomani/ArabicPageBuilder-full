@@ -36,6 +36,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.dp
+import com.arabicpagebuilder.core.model.ElementType
 import com.arabicpagebuilder.core.session.ElementCatalog
 import com.arabicpagebuilder.core.session.PropertyKind
 import com.arabicpagebuilder.core.session.PropertySpec
@@ -74,7 +75,12 @@ fun PropertiesPanel(state: EditorState, onPick: (PickKind, String) -> Unit) {
                 HorizontalDivider()
             }
             key(element.id, spec.key) {
-                PropertyEditor(
+                if (element.type == ElementType.NAV_MENU && spec.key == "items") {
+                    NavItemsEditor(
+                        current = element.props["items"].orEmpty(),
+                        onCommit = { value -> state.apply { it.setProperty("items", value) } },
+                    )
+                } else PropertyEditor(
                     spec = spec,
                     current = element.props[spec.key].orEmpty(),
                     onCommit = { value -> state.apply { it.setProperty(spec.key, value) } },
