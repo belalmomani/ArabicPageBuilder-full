@@ -24,14 +24,15 @@ sealed interface Screen {
 
 /** كل ما يعيش طوال عمر التطبيق: المخزن والإعدادات والشاشة الحالية والمحرر المفتوح. */
 class AppContainer(app: Application) {
-    val store = ProjectStore(File(app.filesDir, "projects"))
+    private val projectsDir = File(app.filesDir, "projects")
+    val store = ProjectStore(projectsDir)
     val archive = ProjectArchive(store)
     val prefs = AppPrefs(app)
 
     init {
         // تنظيف ما خلّفه انقطاع مفاجئ (مجلدات استيراد مؤقتة وملفات تصدير قديمة) دون تعطيل الواجهة.
         thread(name = "startup-cleanup") {
-            store.root.mkdirs()
+            projectsDir.mkdirs()
             store.cleanupStaleTemp()
             com.arabicpagebuilder.editor.ExportActions.cleanOldExports(app)
         }
