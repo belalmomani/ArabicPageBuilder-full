@@ -74,15 +74,38 @@ object HtmlGenerator {
 
     private fun buildCss(doc: PageDocument, warnings: MutableList<GenerationWarning>): String = buildString {
         append(BASE_CSS).append('\n')
+        val mobileRules = ArrayList<Pair<String, List<String>>>()
+        val desktopHidden = ArrayList<String>()
         for (node in doc.root.subtree()) {
+            val selector = if (node.type == ElementType.PAGE_ROOT) "body.${className(node)}" else ".${className(node)}"
             val result = CssSanitizer.convert(node.props)
             for (key in result.rejectedKeys) {
                 warnings.add(GenerationWarning(node.id, WarningCode.INVALID_STYLE_VALUE, key))
             }
-            if (result.declarations.isEmpty()) continue
-            val selector = if (node.type == ElementType.PAGE_ROOT) "body.${className(node)}" else ".${className(node)}"
-            append('\n').append(selector).append(" {\n")
-            for (d in result.declarations) append("  ").append(d).append(";\n")
+            if (result.declarations.isNotEmpty()) {
+                append('\n').append(selector).append(" {\n")
+                for (d in result.declarations) append("  ").append(d).append(";\n")
+                append("}\n")
+            }
+            val mobile = CssSanitizer.convertMobile(node.props)
+            for (key in mobile.rejectedKeys) {
+                warnings.add(GenerationWarning(node.id, WarningCode.INVALID_STYLE_VALUE, key))
+            }
+            if (mobile.declarations.isNotEmpty()) mobileRules.add(selector to mobile.declarations)
+            if (CssSanitizer.hiddenOnDesktop(node.props)) desktopHidden.add(selector)
+        }
+        if (mobileRules.isNotEmpty()) {
+            append("\n@media (max-width: 600px) {\n")
+            for ((selector, declarations) in mobileRules) {
+                append("  ").append(selector).append(" {\n")
+                for (d in declarations) append("    ").append(d).append(";\n")
+                append("  }\n")
+            }
+            append("}\n")
+        }
+        if (desktopHidden.isNotEmpty()) {
+            append("\n@media (min-width: 601px) {\n")
+            for (selector in desktopHidden) append("  ").append(selector).append(" {\n    display: none;\n  }\n")
             append("}\n")
         }
     }

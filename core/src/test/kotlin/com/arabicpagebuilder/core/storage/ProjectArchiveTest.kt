@@ -22,7 +22,7 @@ import kotlin.test.assertIs
 
 class ProjectArchiveTest {
 
-    private val png = byteArrayOf(1, 2, 3, 4, 5, 6, 7, 8)
+    private val png = byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 1, 2, 3, 4)
 
     /** sandbox/ فيه مجلدان: a (مخزن أول) وb (مخزن ثان)؛ وملف خارجهما للتأكد من عدم الكتابة خارج المخزن. */
     private class Sandbox(val dir: File) {
@@ -243,5 +243,14 @@ class ProjectArchiveTest {
         val imported = importBytes(s.storeB, exportBytes(s.storeA, p.id)).ok()
         val src = s.storeB.assetSource(imported.project.id)!!
         assertTrue(src.exists(pdf) && src.exists(mp4))
+    }
+
+    @Test
+    fun importRejectsImagesWhoseContentDoesNotMatchExtension() = withSandbox { s ->
+        val fake = "<html>not an image</html>".toByteArray()
+        assertRejectedCleanly(s, zipOf("project.json" to validProjectJson(), "assets/images/fake.png" to fake))
+        assertRejectedCleanly(s, zipOf("project.json" to validProjectJson(), "assets/images/real.jpg" to png)) // PNG بامتداد jpg
+        // الصورة السليمة تُقبل
+        assertTrue(importBytes(s.storeB, zipOf("project.json" to validProjectJson(), "assets/images/ok.png" to png)) is StoreResult.Ok)
     }
 }

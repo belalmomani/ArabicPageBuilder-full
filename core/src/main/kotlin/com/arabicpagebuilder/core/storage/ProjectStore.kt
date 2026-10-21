@@ -193,6 +193,9 @@ class ProjectStore(
         val tmp = File.createTempFile("asset-", ".tmp", targetDir)
         try {
             if (!copyLimited(input, tmp, maxBytes)) return@io StoreResult.Err(StoreError.ASSET_TOO_LARGE, originalName)
+            if (AssetSignatures.matches(parsed.ext, readHeader(tmp)) == false) {
+                return@io StoreResult.Err(StoreError.ASSET_NOT_ALLOWED, "المحتوى لا يطابق نوع الصورة: $originalName")
+            }
             moveReplace(tmp, File(targetDir, candidate))
             StoreResult.Ok("assets/$sub/$candidate")
         } finally {
@@ -266,6 +269,19 @@ class ProjectStore(
             tmp.delete()
             bakTmp.delete()
         }
+    }
+
+    private fun readHeader(file: File): ByteArray {
+        val buf = ByteArray(AssetSignatures.HEADER_BYTES)
+        var n = 0
+        file.inputStream().use { input ->
+            while (n < buf.size) {
+                val r = input.read(buf, n, buf.size - n)
+                if (r < 0) break
+                n += r
+            }
+        }
+        return buf.copyOf(n)
     }
 
     private fun copyLimited(input: InputStream, target: File, maxBytes: Long): Boolean {

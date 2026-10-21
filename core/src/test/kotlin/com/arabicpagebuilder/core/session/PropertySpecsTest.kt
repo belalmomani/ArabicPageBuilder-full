@@ -40,9 +40,10 @@ class PropertySpecsTest {
     fun allStyleSpecKeysAreKnownToTheCssSanitizer() {
         val nonStyle = setOf("text", "level", "href", "src", "alt", "items", "cite", "phone", "message", "label", "name", "placeholder", "required", "options", "action", "method")
         for (t in ElementType.entries) for (s in PropertySpecs.forType(t)) {
-            if (s.key !in nonStyle) {
-                assertTrue(com.arabicpagebuilder.core.generator.CssSanitizer.styleKeys.contains(s.key), "${t.name}.${s.key}")
-            }
+            val known = com.arabicpagebuilder.core.generator.CssSanitizer.styleKeys.contains(s.key) ||
+                com.arabicpagebuilder.core.generator.CssSanitizer.mobileKeys.contains(s.key) ||
+                s.key == "hideMobile" || s.key == "hideDesktop"
+            if (s.key !in nonStyle) assertTrue(known, "${t.name}.${s.key}")
         }
     }
 

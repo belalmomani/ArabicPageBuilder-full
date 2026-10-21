@@ -38,6 +38,29 @@ object CssSanitizer {
         "shadow", "width", "height", "columns", "gap",
     )
 
+    /** خصائص تُطبَّق على الهاتف فقط (عرض أقل من 600px) وتُكتب بالبادئة m. مثل m.fontSize. */
+    val mobileBaseKeys: Set<String> = setOf("fontSize", "padding", "margin", "width", "height", "columns", "gap")
+    val mobileKeys: Set<String> = mobileBaseKeys.map { "m.$it" }.toSet()
+
+    /** إخفاء العنصر على الهاتف أو على الشاشات الكبيرة (قيمتها "true"). */
+    const val HIDE_MOBILE = "hideMobile"
+    const val HIDE_DESKTOP = "hideDesktop"
+
+    /** تصريحات CSS لقاعدة الهاتف: خصائص m.* الصالحة، ومعها display:none إن طُلب الإخفاء على الهاتف. */
+    fun convertMobile(props: Map<String, String>): CssResult {
+        val ok = ArrayList<String>()
+        val bad = ArrayList<String>()
+        for (key in mobileKeys) {
+            val raw = props[key]?.trim() ?: continue
+            val css = convertOne(key.removePrefix("m."), raw)
+            if (css == null) bad.add(key) else ok.add(css)
+        }
+        if (props[HIDE_MOBILE]?.trim() == "true") ok.add("display: none")
+        return CssResult(ok, bad)
+    }
+
+    fun hiddenOnDesktop(props: Map<String, String>): Boolean = props[HIDE_DESKTOP]?.trim() == "true"
+
     fun convert(props: Map<String, String>): CssResult {
         val ok = ArrayList<String>()
         val bad = ArrayList<String>()
@@ -50,7 +73,11 @@ object CssSanitizer {
     }
 
     /** هل [value] مقبولة للمفتاح [key] (فارغ = غير صالح هنا؛ المستدعي يعامل الفارغ كحذف). */
-    fun isValid(key: String, value: String): Boolean = key in styleKeys && convertOne(key, value.trim()) != null
+    fun isValid(key: String, value: String): Boolean = when {
+        key in styleKeys -> convertOne(key, value.trim()) != null
+        key in mobileKeys -> convertOne(key.removePrefix("m."), value.trim()) != null
+        else -> false
+    }
 
     private fun convertOne(key: String, v: String): String? = when (key) {
         "color" -> if (color.matches(v)) "color: $v" else null

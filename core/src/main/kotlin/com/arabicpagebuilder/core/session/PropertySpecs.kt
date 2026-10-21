@@ -96,7 +96,45 @@ object PropertySpecs {
         PropertySpec("name", "اسم الحقل (حروف لاتينية)", PropertyKind.FIELD_NAME),
     ) + extra.toList() + listOf(required, box("margin", "المسافة الخارجية"), length("width", "العرض"))
 
-    fun forType(type: ElementType): List<PropertySpec> = when (type) {
+    /** خصائص العنصر الأساسية ثم خصائص الاستجابة للشاشات (الهاتف/الإخفاء) حيث تنطبق. */
+    fun forType(type: ElementType): List<PropertySpec> = baseSpecs(type) + responsiveSpecs(type)
+
+    private val hideMobile = PropertySpec(
+        "hideMobile", "إخفاء على الهاتف", PropertyKind.CHOICE, listOf(Choice("true", "نعم"), Choice("false", "لا")),
+    )
+    private val hideDesktop = PropertySpec(
+        "hideDesktop", "إخفاء على الشاشات الكبيرة", PropertyKind.CHOICE, listOf(Choice("true", "نعم"), Choice("false", "لا")),
+    )
+
+    private fun responsiveSpecs(type: ElementType): List<PropertySpec> {
+        val hide = listOf(hideMobile, hideDesktop)
+        return when (type) {
+            ElementType.PAGE_ROOT -> emptyList()
+            ElementType.HEADING, ElementType.PARAGRAPH, ElementType.TEXT, ElementType.BOLD, ElementType.ITALIC,
+            ElementType.UNDERLINE, ElementType.LIST_ORDERED, ElementType.LIST_UNORDERED, ElementType.QUOTE,
+            ElementType.LINK -> listOf(length("m.fontSize", "حجم الخط على الهاتف")) + hide
+            ElementType.BUTTON, ElementType.DOWNLOAD_BUTTON, ElementType.CALL_BUTTON, ElementType.WHATSAPP_BUTTON,
+            ElementType.SUBMIT_BUTTON -> listOf(length("m.fontSize", "حجم الخط على الهاتف"), length("m.width", "العرض على الهاتف")) + hide
+            ElementType.IMAGE, ElementType.VIDEO, ElementType.AUDIO ->
+                listOf(length("m.width", "العرض على الهاتف")) + hide
+            ElementType.GRID -> listOf(
+                PropertySpec("m.columns", "عدد الأعمدة على الهاتف", PropertyKind.CHOICE, (1..6).map { Choice(it.toString(), it.toString()) }),
+                length("m.gap", "المسافة بين الأعمدة على الهاتف"),
+                box("m.padding", "المسافة الداخلية على الهاتف"),
+            ) + hide
+            ElementType.CONTAINER, ElementType.SECTION, ElementType.ROW, ElementType.COLUMN, ElementType.CARD,
+            ElementType.HEADER, ElementType.FOOTER, ElementType.GALLERY, ElementType.FORM -> listOf(
+                box("m.padding", "المسافة الداخلية على الهاتف"),
+                box("m.margin", "المسافة الخارجية على الهاتف"),
+                length("m.width", "العرض على الهاتف"),
+            ) + hide
+            ElementType.SPACER -> listOf(length("m.height", "الارتفاع على الهاتف")) + hide
+            ElementType.DIVIDER, ElementType.TEXT_FIELD, ElementType.EMAIL_FIELD, ElementType.NUMBER_FIELD,
+            ElementType.TEXTAREA_FIELD, ElementType.CHECKBOX, ElementType.SELECT -> hide
+        }
+    }
+
+    private fun baseSpecs(type: ElementType): List<PropertySpec> = when (type) {
         ElementType.PAGE_ROOT -> listOf(
             color("background", "لون خلفية الصفحة"),
             color("color", "لون النص"),

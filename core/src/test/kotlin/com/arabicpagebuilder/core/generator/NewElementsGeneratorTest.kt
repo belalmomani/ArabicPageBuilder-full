@@ -300,4 +300,47 @@ class NewElementsGeneratorTest {
         assertFalse(site.indexHtml.contains("<script") || site.indexHtml.contains("javascript:") || Regex("\\son[a-z]+=").containsMatchIn(site.indexHtml))
         assertEquals(listOf("index.html", "css/style.css"), site.files.keys.toList())
     }
+
+    // ---- الاستجابة للشاشات ----
+
+    @Test
+    fun mobileOverridesGoIntoMediaQueryAfterBaseRules() {
+        val site = gen(
+            el("h", ElementType.HEADING, mapOf("text" to "t", "fontSize" to "32px", "m.fontSize" to "18px", "m.margin" to "4px 8px")),
+            el("g", ElementType.GRID, mapOf("columns" to "4", "m.columns" to "2")),
+        )
+        val css = site.styleCss
+        assertTrue(css.contains("@media (max-width: 600px) {\n  .e-h {\n    font-size: 18px;\n    margin: 4px 8px;\n  }"))
+        assertTrue(css.contains("  .e-g {\n    grid-template-columns: repeat(2, minmax(0, 1fr));\n  }"))
+        // القاعدة الأساسية تسبق قاعدة الهاتف
+        assertTrue(css.indexOf(".e-h {\n  font-size: 32px;") in 0 until css.indexOf("@media (max-width: 600px) {\n  .e-h"))
+        assertTrue(site.warnings.isEmpty())
+    }
+
+    @Test
+    fun hideOnMobileAndDesktopUseOppositeMediaQueries() {
+        val css = gen(
+            el("a", ElementType.PARAGRAPH, mapOf("text" to "x", "hideMobile" to "true")),
+            el("b", ElementType.PARAGRAPH, mapOf("text" to "y", "hideDesktop" to "true")),
+            el("c", ElementType.PARAGRAPH, mapOf("text" to "z", "hideMobile" to "false", "hideDesktop" to "false")),
+        ).styleCss
+        assertTrue(css.contains("@media (max-width: 600px) {\n  .e-a {\n    display: none;\n  }"))
+        assertTrue(css.contains("@media (min-width: 601px) {\n  .e-b {\n    display: none;\n  }"))
+        assertFalse(css.contains(".e-c"))
+    }
+
+    @Test
+    fun invalidMobileValuesAreRejectedWithWarningAndNoMediaBlock() {
+        val site = gen(el("h", ElementType.HEADING, mapOf("text" to "t", "m.fontSize" to "1px; } body { display: none", "m.columns" to "99")))
+        assertEquals(2, site.codes().count { it == WarningCode.INVALID_STYLE_VALUE })
+        assertFalse(site.styleCss.contains("@media (max-width: 600px) {\n  .e-h"))
+        assertFalse(site.styleCss.contains("body { display"))
+    }
+
+    @Test
+    fun noMediaQueryIsEmittedWhenNothingResponsiveIsSet() {
+        val css = gen(el("p", ElementType.PARAGRAPH, mapOf("text" to "x", "color" to "red"))).styleCss
+        assertEquals(1, Regex("@media").findAll(css).count()) // قاعدة الشبكة الأساسية فقط
+        assertFalse(css.contains("@media (min-width"))
+    }
 }

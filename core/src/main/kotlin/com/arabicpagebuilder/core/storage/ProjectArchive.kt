@@ -145,6 +145,23 @@ class ProjectArchive(private val store: ProjectStore) {
                 total += extract(zis, target, maxEntry, total, limits.maxTotalBytes)
             }
 
+            // الصور يجب أن تطابق محتواها امتدادها (يُفحص بعد الفك لتسبق حدود الحجم هذا الفحص).
+            File(staging, "assets/images").listFiles { f -> f.isFile }?.forEach { f ->
+                val header = f.inputStream().use { input ->
+                    val buf = ByteArray(AssetSignatures.HEADER_BYTES)
+                    var n = 0
+                    while (n < buf.size) {
+                        val r = input.read(buf, n, buf.size - n)
+                        if (r < 0) break
+                        n += r
+                    }
+                    buf.copyOf(n)
+                }
+                if (AssetSignatures.matches(f.extension, header) == false) {
+                    throw Rejected(StoreError.INVALID_ARCHIVE, "محتوى الصورة لا يطابق امتدادها: ${f.name}")
+                }
+            }
+
             val projectFile = File(staging, PROJECT_ENTRY)
             if (!projectFile.isFile) throw Rejected(StoreError.INVALID_ARCHIVE, "project.json غير موجود")
             val data = when (val d = store.readProjectFile(projectFile)) {

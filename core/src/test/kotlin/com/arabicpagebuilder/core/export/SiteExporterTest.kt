@@ -293,4 +293,40 @@ class SiteExporterTest {
             success.warnings.toSet(),
         )
     }
+
+    @Test
+    fun exportedZipExtractsToDiskAndEveryReferencedFileExists() = withTempDir { dir ->
+        val d = doc(
+            Element("h", ElementType.HEADING, mapOf("text" to "مرحبًا", "color" to "#123456")),
+            img("i1", "assets/images/صورة.png"),
+            Element("v", ElementType.VIDEO, mapOf("src" to "assets/media/clip.mp4")),
+            Element("dl", ElementType.DOWNLOAD_BUTTON, mapOf("text" to "نزّل", "href" to "assets/files/cv.pdf")),
+            Element("l", ElementType.LINK, mapOf("text" to "خارجي", "href" to "https://example.com")),
+        )
+        val assets = MapAssets(mapOf("assets/images/صورة.png" to png, "assets/media/clip.mp4" to png, "assets/files/cv.pdf" to png))
+        val zipFile = File(dir, "site.zip")
+        assertIs<ExportResult.Success>(SiteExporter.exportToFile(d, assets, zipFile))
+
+        // نفك الأرشيف كما يفعل المستخدم، ثم نتحقق من المشروع على القرص بلا أي مساعدة من التطبيق.
+        val out = File(dir, "unzipped").also { it.mkdirs() }
+        java.util.zip.ZipInputStream(zipFile.inputStream()).use { z ->
+            while (true) {
+                val e = z.nextEntry ?: break
+                if (e.isDirectory) continue
+                val f = File(out, e.name)
+                assertTrue(f.canonicalPath.startsWith(out.canonicalPath + File.separator))
+                f.parentFile.mkdirs()
+                f.outputStream().use { z.copyTo(it) }
+            }
+        }
+        val site = File(out, "website-project")
+        val html = File(site, "index.html").readText(Charsets.UTF_8)
+        assertTrue(html.contains("مرحبًا"))
+        val refs = Regex("(?:src|href)=\"([^\"]*)\"").findAll(html).map { it.groupValues[1] }.filter { !it.contains(':') && !it.startsWith("#") }.toList()
+        assertTrue(refs.containsAll(listOf("css/style.css", "assets/images/صورة.png", "assets/media/clip.mp4", "assets/files/cv.pdf")), refs.toString())
+        for (r in refs) assertTrue(File(site, r).isFile, "ملف مفقود بعد الفك: $r")
+        assertContentEquals(png, File(site, "assets/images/صورة.png").readBytes())
+        assertTrue(File(site, "css/style.css").readText(Charsets.UTF_8).contains("#123456"))
+        assertTrue(File(site, "README.txt").readText(Charsets.UTF_8).contains("index.html"))
+    }
 }

@@ -45,7 +45,8 @@ class ProjectStoreTest {
     private fun withHeading(doc: PageDocument, id: String, text: String): PageDocument =
         (DocumentEditor.add(doc, doc.root.id, Element(id, ElementType.HEADING, mapOf("text" to text))) as EditResult.Success).document
 
-    private val png = byteArrayOf(9, 8, 7, 6, 5, 4)
+    private val png = byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 1, 2, 3, 4)
+    private val jpg = byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte(), 0xE0.toByte(), 0, 16, 0x4A, 0x46)
 
     @Test
     fun createThenLoadAndReopenWithNewStoreInstance() = withStore { store, root ->
@@ -177,7 +178,7 @@ class ProjectStoreTest {
         val p = store.create("م", "ع").ok()
         assertEquals("assets/images/evil.png", store.addAsset(p.id, "../../evil.png", ByteArrayInputStream(png)).ok())
         assertEquals("assets/images/صورة_عائلة.png", store.addAsset(p.id, "صورة عائلة.PNG", ByteArrayInputStream(png)).ok())
-        assertEquals("assets/images/my_photo_1.jpg", store.addAsset(p.id, "my photo (1).jpg", ByteArrayInputStream(png)).ok())
+        assertEquals("assets/images/my_photo_1.jpg", store.addAsset(p.id, "my photo (1).jpg", ByteArrayInputStream(jpg)).ok())
         assertEquals("assets/media/clip.mp4", store.addAsset(p.id, "clip.mp4", ByteArrayInputStream(png)).ok())
         assertTrue(File(File(root, p.id), "assets/images/evil.png").isFile)
         assertFalse(File(root, "evil.png").exists())
@@ -266,5 +267,22 @@ class ProjectStoreTest {
         } finally {
             dir.deleteRecursively()
         }
+    }
+
+    @Test
+    fun imageContentMustMatchItsExtension() = withStore { store, root ->
+        val p = store.create("م", "ع").ok()
+        val html = "<html><script>alert(1)</script></html>".toByteArray()
+        assertEquals(StoreError.ASSET_NOT_ALLOWED, store.addAsset(p.id, "fake.png", ByteArrayInputStream(html)).err())
+        assertEquals(StoreError.ASSET_NOT_ALLOWED, store.addAsset(p.id, "fake.jpg", ByteArrayInputStream(png)).err()) // PNG بامتداد jpg
+        assertEquals(StoreError.ASSET_NOT_ALLOWED, store.addAsset(p.id, "empty.gif", ByteArrayInputStream(ByteArray(0))).err())
+        assertTrue(File(File(root, p.id), "assets/images").list().isNullOrEmpty()) // لا بقايا
+        val gif = "GIF89a".toByteArray() + byteArrayOf(1, 0, 1, 0)
+        val webp = "RIFF".toByteArray() + byteArrayOf(0, 0, 0, 0) + "WEBP".toByteArray() + byteArrayOf(1)
+        assertEquals("assets/images/a.gif", store.addAsset(p.id, "a.gif", ByteArrayInputStream(gif)).ok())
+        assertEquals("assets/images/a.webp", store.addAsset(p.id, "a.webp", ByteArrayInputStream(webp)).ok())
+        assertEquals("assets/images/a.jpeg", store.addAsset(p.id, "a.jpeg", ByteArrayInputStream(jpg)).ok())
+        // الوسائط والملفات لا تُفحص محتواها هنا (مذكور في الوثائق)
+        assertEquals("assets/media/x.mp4", store.addAsset(p.id, "x.mp4", ByteArrayInputStream(html)).ok())
     }
 }
