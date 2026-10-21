@@ -8,7 +8,7 @@ import com.arabicpagebuilder.core.storage.ProjectFormat
 
 enum class PropertyKind {
     TEXT, MULTILINE, URL, HTTPS_URL, IMAGE_SOURCE, MEDIA_SOURCE, FILE_SOURCE, PHONE, FIELD_NAME,
-    CHOICE, COLOR, LENGTH, BOX_LENGTHS,
+    CHOICE, COLOR, LENGTH, BOX_LENGTHS, TIME, OPACITY,
 }
 
 data class Choice(val value: String, val label: String)
@@ -97,7 +97,123 @@ object PropertySpecs {
     ) + extra.toList() + listOf(required, box("margin", "المسافة الخارجية"), length("width", "العرض"))
 
     /** خصائص العنصر الأساسية ثم خصائص الاستجابة للشاشات (الهاتف/الإخفاء) حيث تنطبق. */
-    fun forType(type: ElementType): List<PropertySpec> = baseSpecs(type) + responsiveSpecs(type)
+    fun forType(type: ElementType): List<PropertySpec> =
+        (baseSpecs(type) + responsiveSpecs(type) + effectSpecs(type)).sortedBy { groupIndex(groupOf(it)) } // الترتيب ثابت داخل المجموعة
+
+    // ---- مجموعات اللوحة: كل جزء من الخصائص تحت عنوان واضح ----
+    const val GROUP_CONTENT = "المحتوى"
+    const val GROUP_MENU_TYPE = "نوع القائمة وسلوكها"
+    const val GROUP_MENU_ITEMS = "شكل عناصر القائمة"
+    const val GROUP_STYLE = "الشكل والتنسيق"
+    const val GROUP_EFFECTS = "التأثيرات والحركة"
+    const val GROUP_RESPONSIVE = "الاستجابة للشاشات"
+
+    val groupOrder: List<String> = listOf(GROUP_CONTENT, GROUP_MENU_TYPE, GROUP_MENU_ITEMS, GROUP_STYLE, GROUP_EFFECTS, GROUP_RESPONSIVE)
+
+    private val contentKeys = setOf(
+        "text", "label", "name", "placeholder", "items", "active", "cite", "src", "alt", "href", "action",
+        "method", "phone", "message", "options", "level", "required",
+    )
+
+    fun groupOf(spec: PropertySpec): String = when {
+        spec.key in contentKeys -> GROUP_CONTENT
+        spec.key == "itemStyle" || spec.key == "mobile" || spec.key.startsWith("menu.") -> GROUP_MENU_TYPE
+        spec.key.startsWith("item.") -> GROUP_MENU_ITEMS
+        spec.key in CssSanitizer.effectKeys || spec.key == "opacity" -> GROUP_EFFECTS
+        spec.key.startsWith("m.") || spec.key == CssSanitizer.HIDE_MOBILE || spec.key == CssSanitizer.HIDE_DESKTOP -> GROUP_RESPONSIVE
+        else -> GROUP_STYLE
+    }
+
+    private fun groupIndex(group: String): Int = groupOrder.indexOf(group).let { if (it < 0) groupOrder.size else it }
+
+    // ---- التأثيرات والحركة (لكل عنصر) ----
+    private val animation = PropertySpec(
+        "animation", "حركة الظهور", PropertyKind.CHOICE,
+        listOf(
+            Choice("fadeIn", "ظهور تدريجي"), Choice("slideUp", "انزلاق من الأسفل"), Choice("slideDown", "انزلاق من الأعلى"),
+            Choice("slideRight", "انزلاق من اليسار"), Choice("slideLeft", "انزلاق من اليمين"),
+            Choice("zoomIn", "تكبير"), Choice("bounce", "ارتداد"), Choice("pulse", "نبض"),
+        ),
+    )
+    private val animRepeat = PropertySpec(
+        "animRepeat", "تكرار الحركة", PropertyKind.CHOICE,
+        listOf(Choice("1", "مرة"), Choice("2", "مرتان"), Choice("3", "ثلاث مرات"), Choice("infinite", "مستمر")),
+    )
+    private val hoverEffect = PropertySpec(
+        "hoverEffect", "تأثير عند اللمس أو المرور", PropertyKind.CHOICE,
+        listOf(
+            Choice("lift", "رفع مع ظل"), Choice("scale", "تكبير"), Choice("glow", "توهج"),
+            Choice("brighten", "إضاءة"), Choice("tilt", "إمالة"), Choice("fade", "شفافية"),
+        ),
+    )
+
+    private fun animationSpecs(): List<PropertySpec> = listOf(
+        animation,
+        PropertySpec("animDuration", "مدة الحركة (مثل 0.6s)", PropertyKind.TIME),
+        PropertySpec("animDelay", "تأخير الحركة (مثل 200ms)", PropertyKind.TIME),
+        animRepeat,
+    )
+
+    private fun effectSpecs(type: ElementType): List<PropertySpec> = when (type) {
+        ElementType.PAGE_ROOT -> emptyList()
+        // عناصر القائمة لها تأثيرات مرورها الخاصة (شكل عناصر القائمة)؛ تبقى حركة الظهور للقائمة كلها.
+        ElementType.NAV_MENU -> animationSpecs() + PropertySpec("opacity", "الشفافية (0 إلى 1)", PropertyKind.OPACITY)
+        else -> animationSpecs() + listOf(
+            hoverEffect,
+            color("hoverBackground", "لون الخلفية عند المرور"),
+            color("hoverColor", "لون النص عند المرور"),
+            PropertySpec("transition", "مدة الانتقال (مثل 0.3s)", PropertyKind.TIME),
+            PropertySpec("opacity", "الشفافية (0 إلى 1)", PropertyKind.OPACITY),
+        )
+    }
+
+    // ---- الشريط العلوي والقوائم ----
+    private val justify = PropertySpec(
+        "justify", "توزيع العناصر أفقيًا", PropertyKind.CHOICE,
+        listOf(Choice("flex-start", "من البداية"), Choice("center", "وسط"), Choice("flex-end", "من النهاية"), Choice("space-between", "تباعد بين"), Choice("space-around", "تباعد حول")),
+    )
+    private val alignItems = PropertySpec(
+        "alignItems", "المحاذاة رأسيًا", PropertyKind.CHOICE,
+        listOf(Choice("flex-start", "أعلى"), Choice("center", "وسط"), Choice("flex-end", "أسفل"), Choice("stretch", "تمدد")),
+    )
+    private val sticky = PropertySpec(
+        "sticky", "تثبيت الشريط أعلى الصفحة عند التمرير", PropertyKind.CHOICE,
+        listOf(Choice("true", "نعم"), Choice("false", "لا")),
+    )
+    private val navHover = PropertySpec(
+        "item.hoverEffect", "تأثير عنصر القائمة عند المرور", PropertyKind.CHOICE,
+        listOf(Choice("underline", "خط سفلي"), Choice("lift", "رفع"), Choice("scale", "تكبير"), Choice("fade", "شفافية")),
+    )
+    private val navSpecs = listOf(
+        multiline("items", "عناصر القائمة (كل سطر: النص|الرابط — وسطر يبدأ بـ «- » عنصر فرعي)"),
+        PropertySpec("active", "العنصر النشط (رقمه)", PropertyKind.CHOICE, (1..8).map { Choice(it.toString(), it.toString()) }),
+        PropertySpec(
+            "itemStyle", "شكل القائمة", PropertyKind.CHOICE,
+            listOf(Choice("plain", "بسيط"), Choice("pills", "أقراص"), Choice("underline", "خط سفلي"), Choice("boxed", "مربعات")),
+        ),
+        PropertySpec(
+            "mobile", "سلوك القائمة على الهاتف", PropertyKind.CHOICE,
+            listOf(Choice("collapse", "زر قائمة ☰"), Choice("stack", "عمودية"), Choice("none", "كما هي")),
+        ),
+        PropertySpec("menu.direction", "اتجاه العناصر", PropertyKind.CHOICE, listOf(Choice("row", "أفقي"), Choice("column", "عمودي"))),
+        PropertySpec(
+            "menu.justify", "توزيع العناصر", PropertyKind.CHOICE,
+            listOf(Choice("flex-start", "من البداية"), Choice("center", "وسط"), Choice("flex-end", "من النهاية"), Choice("space-between", "تباعد بين"), Choice("space-around", "تباعد حول")),
+        ),
+        length("menu.gap", "المسافة بين العناصر"),
+        color("item.color", "لون نص العناصر"),
+        color("item.background", "لون خلفية العناصر"),
+        box("item.padding", "المسافة الداخلية للعنصر"),
+        box("item.radius", "نصف قطر زوايا العنصر"),
+        length("item.fontSize", "حجم خط العناصر"),
+        color("item.hoverColor", "لون النص عند المرور"),
+        color("item.hoverBackground", "لون الخلفية عند المرور"),
+        navHover,
+        color("item.activeColor", "لون نص العنصر النشط"),
+        color("item.activeBackground", "لون خلفية العنصر النشط"),
+        color("background", "لون خلفية القائمة"),
+        box("margin", "المسافة الخارجية"),
+    )
 
     private val hideMobile = PropertySpec(
         "hideMobile", "إخفاء على الهاتف", PropertyKind.CHOICE, listOf(Choice("true", "نعم"), Choice("false", "لا")),
@@ -122,7 +238,8 @@ object PropertySpecs {
                 length("m.gap", "المسافة بين الأعمدة على الهاتف"),
                 box("m.padding", "المسافة الداخلية على الهاتف"),
             ) + hide
-            ElementType.CONTAINER, ElementType.SECTION, ElementType.ROW, ElementType.COLUMN, ElementType.CARD,
+            ElementType.NAV_MENU -> hide
+            ElementType.CONTAINER, ElementType.SECTION, ElementType.ROW, ElementType.COLUMN, ElementType.CARD, ElementType.NAVBAR,
             ElementType.HEADER, ElementType.FOOTER, ElementType.GALLERY, ElementType.FORM -> listOf(
                 box("m.padding", "المسافة الداخلية على الهاتف"),
                 box("m.margin", "المسافة الخارجية على الهاتف"),
@@ -243,7 +360,10 @@ object PropertySpecs {
             PropertySpec("columns", "عدد الأعمدة", PropertyKind.CHOICE, (1..6).map { Choice(it.toString(), it.toString()) }),
             length("gap", "المسافة بين الأعمدة"),
         ) + containerSpecs
-        ElementType.CONTAINER, ElementType.SECTION, ElementType.ROW, ElementType.COLUMN, ElementType.CARD,
+        ElementType.NAVBAR -> listOf(sticky, justify, alignItems) + containerSpecs
+        ElementType.NAV_MENU -> navSpecs
+        ElementType.ROW -> containerSpecs + listOf(justify, alignItems, length("gap", "المسافة بين الأعمدة"))
+        ElementType.CONTAINER, ElementType.SECTION, ElementType.COLUMN, ElementType.CARD,
         ElementType.HEADER, ElementType.FOOTER -> containerSpecs
     }
 
@@ -274,6 +394,10 @@ object PropertySpecs {
                 if (CssSanitizer.isValid(spec.key, v)) null else "لون غير صالح. مثال: #1a73e8 أو red"
             PropertyKind.LENGTH ->
                 if (CssSanitizer.isValid(spec.key, v)) null else "قيمة غير صالحة. مثال: 16px أو 2rem أو 50% (وأحيانًا auto)"
+            PropertyKind.TIME ->
+                if (CssSanitizer.isValid(spec.key, v)) null else "مدة غير صالحة. مثال: 0.6s أو 300ms (حتى 99 ثانية)"
+            PropertyKind.OPACITY ->
+                if (CssSanitizer.isValid(spec.key, v)) null else "قيمة غير صالحة. رقم من 0 إلى 1 مثل 0.5"
             PropertyKind.BOX_LENGTHS ->
                 if (CssSanitizer.isValid(spec.key, v)) null else "قيمة غير صالحة. مثال: 8px أو 8px 16px (حتى أربع قيم)"
         }

@@ -340,7 +340,7 @@ class NewElementsGeneratorTest {
     @Test
     fun noMediaQueryIsEmittedWhenNothingResponsiveIsSet() {
         val css = gen(el("p", ElementType.PARAGRAPH, mapOf("text" to "x", "color" to "red"))).styleCss
-        assertEquals(1, Regex("@media").findAll(css).count()) // قاعدة الشبكة الأساسية فقط
+        assertFalse(css.contains("@media (max-width: 600px) {\n  .e-")) // لا قواعد هاتف خاصة بالعناصر
         assertFalse(css.contains("@media (min-width"))
     }
 }

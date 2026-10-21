@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -58,7 +59,20 @@ fun PropertiesPanel(state: EditorState, onPick: (PickKind, String) -> Unit) {
     val specs = remember(element.type) { PropertySpecs.forType(element.type) }
     Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(12.dp)) {
         Text("خصائص: ${ElementCatalog.label(element.type)}", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+        var lastGroup = ""
         for (spec in specs) {
+            val group = PropertySpecs.groupOf(spec)
+            if (group != lastGroup) {
+                lastGroup = group
+                Text(
+                    group,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(top = 16.dp, bottom = 2.dp),
+                )
+                HorizontalDivider()
+            }
             key(element.id, spec.key) {
                 PropertyEditor(
                     spec = spec,

@@ -446,7 +446,7 @@ private fun LibraryPanel(ctrl: DragController, onDrop: () -> Unit, onAddType: (E
             "اضغط لإضافة العنصر (داخل المحدد إن كان حاوية، وإلا بعده)، أو اضغط مطوّلًا واسحبه إلى مكان في القائمة.",
             style = MaterialTheme.typography.bodySmall,
         )
-        Text("عناصر جاهزة", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 6.dp))
+        Text("أجزاء جاهزة للصفحة", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 6.dp))
         for (preset in ElementCatalog.presets) {
             LibraryItem(preset.title, ctrl, DragPayload.NewPreset(preset.key), onTap = { onAddPreset(preset.key) }, onDrop = onDrop)
         }

@@ -19,6 +19,10 @@ enum class ElementType(val acceptsChildren: Boolean) {
     GALLERY(true),
     SPACER(false),
 
+    // التنقل
+    NAVBAR(true),
+    NAV_MENU(false),
+
     // النصوص
     HEADING(false),
     PARAGRAPH(false),

@@ -35,7 +35,31 @@ object HtmlGenerator {
         |.field { display: flex; flex-direction: column; gap: .25rem; }
         |.field.check { flex-direction: row; align-items: center; gap: .5rem; }
         |.field input:not([type="checkbox"]), .field textarea, .field select { padding: .5rem; font: inherit; border: 1px solid #bbbbbb; border-radius: 6px; }
+        |.navbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; padding: .75rem 1rem; background: #ffffff; border-bottom: 1px solid #e0e0e0; }
+        |.navbar-sticky { position: sticky; top: 0; z-index: 10; }
+        |.navmenu ul { list-style: none; margin: 0; padding: 0; display: flex; gap: .25rem; }
+        |.navmenu li { position: relative; }
+        |.navmenu li > a, .navmenu li > span { display: block; padding: .5rem .9rem; color: inherit; text-decoration: none; transition: all .2s ease; }
+        |.navmenu li > a:hover { background: rgba(0, 0, 0, .06); }
+        |.navmenu li > a.active { font-weight: 700; }
+        |.navmenu-pills li > a, .navmenu-pills li > span { border-radius: 999px; }
+        |.navmenu-boxed li > a, .navmenu-boxed li > span { border: 1px solid currentColor; border-radius: 6px; }
+        |.navmenu-underline li > a, .navmenu-underline li > span { border-bottom: 2px solid transparent; }
+        |.navmenu-underline li > a:hover, .navmenu-underline li > a.active { border-bottom-color: currentColor; }
+        |.navmenu .has-sub > ul { display: none; position: absolute; top: 100%; inset-inline-start: 0; min-width: 11rem; flex-direction: column; background: #ffffff; color: #202124; border: 1px solid #e0e0e0; border-radius: 6px; box-shadow: 0 6px 16px rgba(0, 0, 0, .15); z-index: 20; }
+        |.navmenu .has-sub:hover > ul, .navmenu .has-sub:focus-within > ul { display: flex; }
+        |.navmenu-toggle, .navmenu-burger { display: none; }
+        |@keyframes kf-fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        |@keyframes kf-slideUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: none; } }
+        |@keyframes kf-slideDown { from { opacity: 0; transform: translateY(-24px); } to { opacity: 1; transform: none; } }
+        |@keyframes kf-slideRight { from { opacity: 0; transform: translateX(-24px); } to { opacity: 1; transform: none; } }
+        |@keyframes kf-slideLeft { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: none; } }
+        |@keyframes kf-zoomIn { from { opacity: 0; transform: scale(.8); } to { opacity: 1; transform: none; } }
+        |@keyframes kf-bounce { 0%, 100% { transform: none; } 50% { transform: translateY(-12px); } }
+        |@keyframes kf-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
         |@media (max-width: 600px) { .grid { grid-template-columns: 1fr; } }
+        |@media (max-width: 600px) { .navmenu-collapse .navmenu-burger { display: block; cursor: pointer; padding: .5rem .9rem; font-size: 1.4rem; } .navmenu-collapse > ul { display: none; flex-direction: column; } .navmenu-collapse .navmenu-toggle:checked ~ ul { display: flex; } .navmenu-stack > ul { flex-direction: column; } .navmenu .has-sub > ul { position: static; display: flex; box-shadow: none; border: 0; } }
+        |@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
     """.trimMargin()
 
     fun generate(doc: PageDocument): GeneratedSite {
@@ -72,6 +96,12 @@ object HtmlGenerator {
     /** اسم صنف ثابت مشتق من معرّف العنصر (أحرف آمنة فقط). */
     fun className(e: Element): String = "e-" + e.id.map { if (it.isLetterOrDigit() && it.code < 128 || it == '-' || it == '_') it else '_' }.joinToString("")
 
+    private fun StringBuilder.rule(selector: String, declarations: List<String>) {
+        append('\n').append(selector).append(" {\n")
+        for (d in declarations) append("  ").append(d).append(";\n")
+        append("}\n")
+    }
+
     private fun buildCss(doc: PageDocument, warnings: MutableList<GenerationWarning>): String = buildString {
         append(BASE_CSS).append('\n')
         val mobileRules = ArrayList<Pair<String, List<String>>>()
@@ -82,10 +112,18 @@ object HtmlGenerator {
             for (key in result.rejectedKeys) {
                 warnings.add(GenerationWarning(node.id, WarningCode.INVALID_STYLE_VALUE, key))
             }
-            if (result.declarations.isNotEmpty()) {
-                append('\n').append(selector).append(" {\n")
-                for (d in result.declarations) append("  ").append(d).append(";\n")
-                append("}\n")
+            if (result.declarations.isNotEmpty()) rule(selector, result.declarations)
+            val hover = CssSanitizer.convertHover(node.props)
+            if (hover.isNotEmpty()) rule("$selector:hover", hover)
+            if (node.type == ElementType.NAV_MENU) {
+                val nav = CssSanitizer.convertNav(node.props)
+                for (key in nav.rejectedKeys) {
+                    warnings.add(GenerationWarning(node.id, WarningCode.INVALID_STYLE_VALUE, key))
+                }
+                if (nav.list.isNotEmpty()) rule("$selector > ul", nav.list)
+                if (nav.link.isNotEmpty()) rule("$selector li > a, $selector li > span", nav.link)
+                if (nav.hover.isNotEmpty()) rule("$selector li > a:hover", nav.hover)
+                if (nav.active.isNotEmpty()) rule("$selector li > a.active", nav.active)
             }
             val mobile = CssSanitizer.convertMobile(node.props)
             for (key in mobile.rejectedKeys) {
@@ -120,6 +158,11 @@ object HtmlGenerator {
             // ---- التخطيط ----
             ElementType.CONTAINER -> block("div", cls, e, depth, out, w, inForm)
             ElementType.SECTION -> block("section", cls, e, depth, out, w, inForm)
+            ElementType.NAVBAR -> {
+                val sticky = e.props["sticky"]?.trim() == "true"
+                block("header", "$cls navbar" + if (sticky) " navbar-sticky" else "", e, depth, out, w, inForm)
+            }
+            ElementType.NAV_MENU -> renderNavMenu(e, cls, pad, out, w)
             ElementType.HEADER -> block("header", cls, e, depth, out, w, inForm)
             ElementType.FOOTER -> block("footer", cls, e, depth, out, w, inForm)
             ElementType.ROW -> block("div", "$cls row", e, depth, out, w, inForm)
@@ -241,6 +284,73 @@ object HtmlGenerator {
         out.append("$pad<$tag class=\"$cls\"$extraAttrs>\n")
         for (child in e.children) render(child, depth + 1, out, w, inForm)
         out.append("$pad</$tag>\n")
+    }
+
+    private class NavItem(val text: String, val href: String?, val children: MutableList<NavItem> = mutableListOf())
+
+    /** كل سطر: «النص|الرابط». سطر يبدأ بـ «- » عنصر فرعي للعنصر السابق. الرابط الفارغ أو # = أعلى الصفحة. */
+    private fun parseNavItems(e: Element, w: MutableList<GenerationWarning>): List<NavItem> {
+        val top = ArrayList<NavItem>()
+        for (raw in e.props["items"].orEmpty().replace("\r\n", "\n").split('\n')) {
+            val line = raw.trim()
+            if (line.isEmpty()) continue
+            val isChild = line.startsWith("- ") && top.isNotEmpty()
+            val body = if (line.startsWith("- ")) line.removePrefix("- ").trim() else line
+            val text = body.substringBefore('|').trim()
+            if (text.isEmpty()) continue
+            val rawHref = if (body.contains('|')) body.substringAfter('|').trim() else ""
+            val href: String? = when {
+                rawHref.isEmpty() || rawHref == "#" -> "#"
+                else -> UrlSanitizer.sanitizeLink(rawHref).also {
+                    if (it == null) w.add(GenerationWarning(e.id, WarningCode.INVALID_LINK, rawHref))
+                }
+            }
+            val item = NavItem(text, href)
+            if (isChild) top.last().children.add(item) else top.add(item)
+        }
+        return top
+    }
+
+    private fun navLink(item: NavItem, active: Boolean): String {
+        val label = HtmlEscape.text(item.text)
+        return if (item.href == null) {
+            "<span>$label</span>"
+        } else {
+            val activeAttrs = if (active) " class=\"active\" aria-current=\"page\"" else ""
+            "<a href=\"${HtmlEscape.attr(item.href)}\"$activeAttrs${relFor(item.href)}>$label</a>"
+        }
+    }
+
+    /** قائمة تنقل: <nav> فيها <ul> متداخلة للقوائم الفرعية، وزر ☰ بلا JavaScript (checkbox + label) للهاتف. */
+    private fun renderNavMenu(e: Element, cls: String, pad: String, out: StringBuilder, w: MutableList<GenerationWarning>) {
+        val style = e.props["itemStyle"]?.trim()?.takeIf { it in setOf("plain", "pills", "underline", "boxed") } ?: "plain"
+        val mobile = e.props["mobile"]?.trim()?.takeIf { it in setOf("collapse", "stack", "none") } ?: "collapse"
+        val activeIndex = e.props["active"]?.trim()?.toIntOrNull() ?: 0
+        val items = parseNavItems(e, w)
+        out.append("$pad<nav class=\"$cls navmenu navmenu-$style navmenu-$mobile\" aria-label=\"القائمة\">\n")
+        if (mobile == "collapse") {
+            out.append("$pad  <input type=\"checkbox\" id=\"nm-$cls\" class=\"navmenu-toggle\">\n")
+            out.append("$pad  <label for=\"nm-$cls\" class=\"navmenu-burger\" aria-label=\"فتح القائمة\">☰</label>\n")
+        }
+        if (items.isEmpty()) {
+            out.append("$pad  <ul></ul>\n")
+        } else {
+            out.append("$pad  <ul>\n")
+            items.forEachIndexed { i, item ->
+                val active = activeIndex == i + 1
+                if (item.children.isEmpty()) {
+                    out.append("$pad    <li>${navLink(item, active)}</li>\n")
+                } else {
+                    out.append("$pad    <li class=\"has-sub\">${navLink(item, active)}\n")
+                    out.append("$pad      <ul>\n")
+                    for (child in item.children) out.append("$pad        <li>${navLink(child, false)}</li>\n")
+                    out.append("$pad      </ul>\n")
+                    out.append("$pad    </li>\n")
+                }
+            }
+            out.append("$pad  </ul>\n")
+        }
+        out.append("$pad</nav>\n")
     }
 
     private fun renderList(tag: String, cls: String, e: Element, pad: String, out: StringBuilder) {

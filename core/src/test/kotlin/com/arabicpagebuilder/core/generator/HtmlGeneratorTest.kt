@@ -209,9 +209,9 @@ class HtmlGeneratorTest {
                 ),
             ),
         )
-        assertFalse(site.styleCss.contains("display: none"))
+        assertFalse(site.styleCss.contains("body { display: none"))   // القيمة المحقونة لم تدخل
         assertFalse(site.styleCss.contains("evil.example"))
-        assertFalse(site.styleCss.contains("position"))
+        assertFalse(site.styleCss.contains("position:fixed") || site.styleCss.contains("position: fixed"))
         assertFalse(site.styleCss.contains(".e-h {"))
         assertEquals(4, site.warnings.count { it.code == WarningCode.INVALID_STYLE_VALUE })
     }

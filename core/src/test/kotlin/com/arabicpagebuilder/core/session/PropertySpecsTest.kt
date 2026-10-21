@@ -38,11 +38,9 @@ class PropertySpecsTest {
 
     @Test
     fun allStyleSpecKeysAreKnownToTheCssSanitizer() {
-        val nonStyle = setOf("text", "level", "href", "src", "alt", "items", "cite", "phone", "message", "label", "name", "placeholder", "required", "options", "action", "method")
+        val nonStyle = setOf("text", "level", "href", "src", "alt", "items", "cite", "phone", "message", "label", "name", "placeholder", "required", "options", "action", "method", "active", "itemStyle", "mobile", "sticky")
         for (t in ElementType.entries) for (s in PropertySpecs.forType(t)) {
-            val known = com.arabicpagebuilder.core.generator.CssSanitizer.styleKeys.contains(s.key) ||
-                com.arabicpagebuilder.core.generator.CssSanitizer.mobileKeys.contains(s.key) ||
-                s.key == "hideMobile" || s.key == "hideDesktop"
+            val known = com.arabicpagebuilder.core.generator.CssSanitizer.allKeys.contains(s.key)
             if (s.key !in nonStyle) assertTrue(known, "${t.name}.${s.key}")
         }
     }
@@ -108,5 +106,52 @@ class PropertySpecsTest {
             assertEquals(t, e.type)
             assertTrue(ElementCatalog.label(t).isNotBlank())
         }
+    }
+
+    @Test
+    fun specsAreGroupedUnderOrderedHeadings() {
+        for (t in ElementType.entries) {
+            val groups = PropertySpecs.forType(t).map { PropertySpecs.groupOf(it) }
+            assertTrue(groups.all { it in PropertySpecs.groupOrder }, t.name)
+            val indices = groups.map { PropertySpecs.groupOrder.indexOf(it) }
+            assertEquals(indices.sorted(), indices, "${t.name}: يجب أن تتجمع الخصائص حسب المجموعات بالترتيب")
+        }
+    }
+
+    @Test
+    fun navMenuHasTypeLayoutItemStyleAndEffectGroups() {
+        val specs = PropertySpecs.forType(ElementType.NAV_MENU)
+        val byGroup = specs.groupBy { PropertySpecs.groupOf(it) }
+        assertTrue(byGroup.getValue(PropertySpecs.GROUP_CONTENT).map { it.key }.containsAll(listOf("items", "active")))
+        assertTrue(byGroup.getValue(PropertySpecs.GROUP_MENU_TYPE).map { it.key }.containsAll(listOf("itemStyle", "mobile", "menu.direction", "menu.justify", "menu.gap")))
+        assertTrue(byGroup.getValue(PropertySpecs.GROUP_MENU_ITEMS).map { it.key }.containsAll(listOf("item.color", "item.background", "item.padding", "item.radius", "item.hoverEffect", "item.activeBackground")))
+        assertTrue(byGroup.getValue(PropertySpecs.GROUP_EFFECTS).map { it.key }.containsAll(listOf("animation", "animDuration", "animDelay", "animRepeat")))
+        assertTrue(byGroup.getValue(PropertySpecs.GROUP_RESPONSIVE).map { it.key }.containsAll(listOf("hideMobile", "hideDesktop")))
+    }
+
+    @Test
+    fun navbarOffersStickyAndAlignmentAndEveryVisibleElementOffersEffects() {
+        val navbar = PropertySpecs.forType(ElementType.NAVBAR).map { it.key }
+        assertTrue(navbar.containsAll(listOf("sticky", "justify", "alignItems", "background", "padding")))
+        for (t in ElementType.entries) {
+            if (t == ElementType.PAGE_ROOT) continue
+            val keys = PropertySpecs.forType(t).map { it.key }
+            assertTrue("animation" in keys && "animDuration" in keys && "animDelay" in keys, "${t.name}: حركة الظهور")
+            if (t != ElementType.NAV_MENU) assertTrue("hoverEffect" in keys && "transition" in keys, "${t.name}: تأثير المرور")
+        }
+    }
+
+    @Test
+    fun effectValuesAreValidated() {
+        val spec = { key: String -> PropertySpecs.forType(ElementType.CARD).first { it.key == key } }
+        assertNull(PropertySpecs.validate(spec("animDuration"), "0.6s"))
+        assertNull(PropertySpecs.validate(spec("animDelay"), "250ms"))
+        assertNotNull(PropertySpecs.validate(spec("animDuration"), "5 minutes"))
+        assertNotNull(PropertySpecs.validate(spec("transition"), "1s; x"))
+        assertNull(PropertySpecs.validate(spec("opacity"), "0.5"))
+        assertNotNull(PropertySpecs.validate(spec("opacity"), "2"))
+        assertNull(PropertySpecs.validate(spec("hoverBackground"), "#eeeeee"))
+        assertNotNull(PropertySpecs.validate(spec("hoverColor"), "red; x"))
+        assertNotNull(PropertySpecs.validate(spec("animation"), "spin"))
     }
 }

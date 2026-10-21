@@ -130,6 +130,9 @@ private fun createPreviewWebView(context: Context): WebView = WebView(context).a
                 }
                 return notFound()
             }
+            // صفحة المعاينة نفسها يحمّلها WebView داخليًا كرابط data: فلا يجوز حجبه (وإلا فشل التحميل بخطأ 403).
+            // لا يولّد المولّد أي data: داخل المحتوى (المصادر المرفوضة تُحذف)، فهذا لا يفتح بابًا لمحتوى المستخدم.
+            if (uri.scheme == "data" || uri.scheme == "about") return null
             val external = uri.scheme == "https" || uri.scheme == "http"
             return if (external && data.allowExternal) null else blocked()
         }
