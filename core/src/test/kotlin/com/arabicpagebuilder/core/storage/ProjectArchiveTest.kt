@@ -232,4 +232,16 @@ class ProjectArchiveTest {
         f.writeText("not a zip")
         assertTrue(ProjectArchive(s.storeA).verify(f).isNotEmpty())
     }
+
+    @Test
+    fun filesAndMediaSurviveRoundTripAndExeIsRejected() = withSandbox { s ->
+        // الرفض أولًا (يتحقق أن المخزن الهدف بقي فارغًا تمامًا)
+        assertRejectedCleanly(s, zipOf("project.json" to validProjectJson(), "assets/files/evil.exe" to byteArrayOf(1)))
+        val p = s.storeA.create("م", "ع").ok()
+        val pdf = s.storeA.addAsset(p.id, "cv.pdf", ByteArrayInputStream(png)).ok()
+        val mp4 = s.storeA.addAsset(p.id, "clip.mp4", ByteArrayInputStream(png)).ok()
+        val imported = importBytes(s.storeB, exportBytes(s.storeA, p.id)).ok()
+        val src = s.storeB.assetSource(imported.project.id)!!
+        assertTrue(src.exists(pdf) && src.exists(mp4))
+    }
 }

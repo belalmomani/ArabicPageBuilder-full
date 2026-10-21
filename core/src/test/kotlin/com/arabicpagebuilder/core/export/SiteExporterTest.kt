@@ -270,4 +270,27 @@ class SiteExporterTest {
             assertFalse(ZipPaths.isSafeEntryName(bad), bad)
         }
     }
+
+    @Test
+    fun videoAudioAndDownloadAssetsAreCopiedOrReportedMissing() {
+        val d = doc(
+            Element("v", ElementType.VIDEO, mapOf("src" to "assets/media/clip.mp4")),
+            Element("a", ElementType.AUDIO, mapOf("src" to "assets/media/gone.mp3")),
+            Element("dl", ElementType.DOWNLOAD_BUTTON, mapOf("text" to "نزّل", "href" to "assets/files/cv.pdf")),
+            Element("dl2", ElementType.DOWNLOAD_BUTTON, mapOf("text" to "نزّل", "href" to "assets/files/gone.pdf")),
+        )
+        val assets = MapAssets(mapOf("assets/media/clip.mp4" to png, "assets/files/cv.pdf" to png))
+        val (r, bytes) = exportBytes(d, assets)
+        val success = assertIs<ExportResult.Success>(r)
+        val zip = readZip(bytes)
+        assertTrue("website-project/assets/media/clip.mp4" in zip.keys)
+        assertTrue("website-project/assets/files/cv.pdf" in zip.keys)
+        assertEquals(
+            setOf(
+                ExportWarning(ExportWarningCode.MISSING_ASSET, "assets/media/gone.mp3", "a"),
+                ExportWarning(ExportWarningCode.LOCAL_LINK_TARGET_MISSING, "assets/files/gone.pdf", "dl2"),
+            ),
+            success.warnings.toSet(),
+        )
+    }
 }

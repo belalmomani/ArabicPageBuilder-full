@@ -61,7 +61,7 @@ class ProjectArchive(private val store: ProjectStore) {
             zip.write(json)
             zip.closeEntry()
             count++
-            for (sub in listOf("images", "media")) {
+            for (sub in listOf("images", "media", "files")) {
                 val base = File(dir, "assets/$sub")
                 val files = base.listFiles { f -> f.isFile }?.sortedBy { it.name } ?: continue
                 for (f in files) {
@@ -225,7 +225,7 @@ class ProjectArchive(private val store: ProjectStore) {
     private fun entryProblem(name: String): String? {
         if (name == PROJECT_ENTRY) return null
         val parts = name.split('/')
-        if (parts.size == 3 && parts[0] == "assets" && (parts[1] == "images" || parts[1] == "media")) {
+        if (parts.size == 3 && parts[0] == "assets" && (parts[1] == "images" || parts[1] == "media" || parts[1] == "files")) {
             return if (AssetNames.isValidStoredName(parts[2], parts[1])) null else "اسم ملف غير مقبول: $name"
         }
         return "مدخل غير متوقع: $name"

@@ -7,6 +7,13 @@ enum class WarningCode {
     MISSING_ALT,
     INVALID_STYLE_VALUE,
     BUTTON_WITHOUT_ACTION,
+    MISSING_MEDIA_SOURCE,
+    INVALID_MEDIA_SOURCE,
+    INVALID_PHONE,
+    SUBMIT_OUTSIDE_FORM,
+    FORM_WITHOUT_ACTION,
+    INVALID_FORM_ACTION,
+    INVALID_FIELD_NAME,
 }
 
 data class GenerationWarning(val elementId: String, val code: WarningCode, val detail: String? = null)

@@ -48,7 +48,48 @@ class EditorSession(
      */
     fun addElement(type: ElementType): EditResult {
         if (type == ElementType.PAGE_ROOT) return EditResult.Failure(EditError.CANNOT_ADD_ROOT_TYPE)
-        val element = ElementCatalog.defaultElement(type, ids)
+        return insertAtSelection(ElementCatalog.defaultElement(type, ids))
+    }
+
+    /** يضيف عنصرًا جاهزًا (شجرة كاملة) بنفس قواعد [addElement]. */
+    fun addPreset(key: String): EditResult {
+        val element = ElementCatalog.buildPreset(key, ids) ?: return EditResult.Failure(EditError.ELEMENT_NOT_FOUND)
+        return insertAtSelection(element)
+    }
+
+    /** سحب وإفلات: ينقل العنصر [id] إلى [targetId] في [zone]. */
+    fun dragMove(id: String, targetId: String, zone: DropZone): EditResult {
+        val plan = DropPlanner.plan(document, id, targetId, zone) ?: return invalidDrop(id, targetId)
+        return commit(DocumentEditor.move(document, id, plan.parentId, plan.index), newSelection = id)
+    }
+
+    /** سحب وإفلات من المكتبة: يضيف عنصرًا جديدًا من نوع [type] عند [targetId] في [zone]. */
+    fun dropNewElement(type: ElementType, targetId: String, zone: DropZone): EditResult {
+        if (type == ElementType.PAGE_ROOT) return EditResult.Failure(EditError.CANNOT_ADD_ROOT_TYPE)
+        return dropNew(ElementCatalog.defaultElement(type, ids), targetId, zone)
+    }
+
+    fun dropPreset(key: String, targetId: String, zone: DropZone): EditResult {
+        val element = ElementCatalog.buildPreset(key, ids) ?: return EditResult.Failure(EditError.ELEMENT_NOT_FOUND)
+        return dropNew(element, targetId, zone)
+    }
+
+    private fun dropNew(element: Element, targetId: String, zone: DropZone): EditResult {
+        val plan = DropPlanner.plan(document, null, targetId, zone)
+            ?: return EditResult.Failure(if (document.find(targetId) == null) EditError.PARENT_NOT_FOUND else EditError.PARENT_CANNOT_HAVE_CHILDREN)
+        return commit(DocumentEditor.add(document, plan.parentId, element, plan.index), newSelection = element.id)
+    }
+
+    private fun invalidDrop(id: String, targetId: String): EditResult {
+        val doc = document
+        val dragged = doc.find(id) ?: return EditResult.Failure(EditError.ELEMENT_NOT_FOUND)
+        if (doc.find(targetId) == null) return EditResult.Failure(EditError.PARENT_NOT_FOUND)
+        if (dragged.id == doc.root.id) return EditResult.Failure(EditError.CANNOT_MODIFY_ROOT)
+        if (id == targetId) return EditResult.Failure(EditError.CANNOT_MOVE_INTO_SELF)
+        return EditResult.Failure(EditError.CANNOT_MOVE_INTO_DESCENDANT)
+    }
+
+    private fun insertAtSelection(element: Element): EditResult {
         val doc = document
         val sel = selected
         val result = when {

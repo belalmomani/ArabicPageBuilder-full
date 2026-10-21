@@ -47,5 +47,12 @@ internal object ReadmeBuilder {
         WarningCode.MISSING_ALT -> "صورة بلا نص بديل"
         WarningCode.INVALID_STYLE_VALUE -> "قيمة تنسيق غير صالحة فتم تجاهلها"
         WarningCode.BUTTON_WITHOUT_ACTION -> "زر بلا إجراء (يظهر معطّلًا)"
+        WarningCode.MISSING_MEDIA_SOURCE -> "فيديو أو صوت بلا مصدر فحُذف"
+        WarningCode.INVALID_MEDIA_SOURCE -> "مصدر وسائط غير صالح فحُذف العنصر"
+        WarningCode.INVALID_PHONE -> "رقم هاتف مفقود أو غير صالح (يظهر الزر معطّلًا)"
+        WarningCode.SUBMIT_OUTSIDE_FORM -> "زر إرسال خارج أي نموذج (يظهر معطّلًا)"
+        WarningCode.FORM_WITHOUT_ACTION -> "نموذج بلا رابط استقبال: لن تُرسَل بياناته إلى أي مكان قبل ربطه بخادم أو خدمة خارجية"
+        WarningCode.INVALID_FORM_ACTION -> "رابط استقبال النموذج غير صالح (يلزم https) فحُذف"
+        WarningCode.INVALID_FIELD_NAME -> "حقل بلا اسم صالح (لن تُرسَل قيمته)"
     }
 }

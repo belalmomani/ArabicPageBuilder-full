@@ -26,7 +26,7 @@ class HtmlGeneratorTest {
 
     /** فحص توازن الوسوم المستخدمة في مخرجاتنا (ليس محلل HTML كاملًا). */
     private fun assertBalancedTags(html: String) {
-        val void = setOf("meta", "link", "img", "br")
+        val void = setOf("meta", "link", "img", "br", "hr", "input")
         val stack = ArrayDeque<String>()
         for (m in Regex("<(/?)([a-zA-Z][a-zA-Z0-9]*)[^>]*>").findAll(html)) {
             val closing = m.groupValues[1] == "/"

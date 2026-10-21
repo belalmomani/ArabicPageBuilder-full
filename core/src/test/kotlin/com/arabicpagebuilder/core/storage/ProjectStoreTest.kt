@@ -239,4 +239,32 @@ class ProjectStoreTest {
         ZipInputStream(ByteArrayInputStream(out.toByteArray())).use { z -> while (true) { names.add((z.nextEntry ?: break).name) } }
         assertTrue("website-project/assets/images/photo.png" in names)
     }
+
+    @Test
+    fun documentsAndOtherAllowedFilesGoToFilesFolder() = withStore { store, _ ->
+        val p = store.create("م", "ع").ok()
+        assertEquals("assets/files/cv.pdf", store.addAsset(p.id, "cv.pdf", ByteArrayInputStream(png)).ok())
+        assertEquals("assets/files/تقرير_2026.docx", store.addAsset(p.id, "تقرير 2026.docx", ByteArrayInputStream(png)).ok())
+        assertEquals("assets/files/data.csv", store.addAsset(p.id, "../data.csv", ByteArrayInputStream(png)).ok())
+        assertTrue(store.assetSource(p.id)!!.exists("assets/files/cv.pdf"))
+        assertEquals(StoreError.ASSET_NOT_ALLOWED, store.addAsset(p.id, "run.exe", ByteArrayInputStream(png)).err())
+        assertEquals(StoreError.ASSET_NOT_ALLOWED, store.addAsset(p.id, "page.html", ByteArrayInputStream(png)).err())
+    }
+
+    @Test
+    fun cleanupRemovesOnlyStaleImportFolders() {
+        val dir = Files.createTempDirectory("apb-clean").toFile()
+        try {
+            val store = ProjectStore(dir) // الساعة الحقيقية
+            val project = store.create("م", "ع").ok()
+            val stale = File(dir, ".import-old").also { it.mkdirs(); File(it, "x.txt").writeText("x"); it.setLastModified(1_000L) }
+            val fresh = File(dir, ".import-new").also { it.mkdirs() }
+            assertEquals(1, store.cleanupStaleTemp(olderThanMillis = 60_000L))
+            assertFalse(stale.exists())
+            assertTrue(fresh.exists())
+            assertTrue(File(dir, project.id).isDirectory) // المشاريع لا تُمس
+        } finally {
+            dir.deleteRecursively()
+        }
+    }
 }

@@ -17,12 +17,12 @@ object LocalReferences {
         val out = ArrayList<LocalRef>()
         for (e in doc.root.subtree()) {
             when (e.type) {
-                ElementType.IMAGE -> {
+                ElementType.IMAGE, ElementType.VIDEO, ElementType.AUDIO -> {
                     val src = e.props["src"] ?: continue
                     val ok = UrlSanitizer.sanitizeImageSource(src) ?: continue
                     UrlSanitizer.sanitizeLocalPath(ok)?.let { out.add(LocalRef(e.id, RefKind.IMAGE, stripQuery(it))) }
                 }
-                ElementType.LINK, ElementType.BUTTON -> {
+                ElementType.LINK, ElementType.BUTTON, ElementType.DOWNLOAD_BUTTON -> {
                     val href = e.props["href"] ?: continue
                     val ok = UrlSanitizer.sanitizeLink(href) ?: continue
                     if (ok.startsWith("#")) continue

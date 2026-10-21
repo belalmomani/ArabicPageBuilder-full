@@ -10,6 +10,7 @@ import com.arabicpagebuilder.core.storage.ProjectArchive
 import com.arabicpagebuilder.core.storage.ProjectStore
 import com.arabicpagebuilder.editor.EditorState
 import java.io.File
+import kotlin.concurrent.thread
 
 class PageBuilderApp : Application() {
     val container: AppContainer by lazy { AppContainer(this) }
@@ -26,6 +27,15 @@ class AppContainer(app: Application) {
     val store = ProjectStore(File(app.filesDir, "projects"))
     val archive = ProjectArchive(store)
     val prefs = AppPrefs(app)
+
+    init {
+        // تنظيف ما خلّفه انقطاع مفاجئ (مجلدات استيراد مؤقتة وملفات تصدير قديمة) دون تعطيل الواجهة.
+        thread(name = "startup-cleanup") {
+            store.root.mkdirs()
+            store.cleanupStaleTemp()
+            com.arabicpagebuilder.editor.ExportActions.cleanOldExports(app)
+        }
+    }
 
     var screen: Screen by mutableStateOf(Screen.Home)
     var editor: EditorState? = null

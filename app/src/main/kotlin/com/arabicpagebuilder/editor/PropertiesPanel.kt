@@ -41,8 +41,15 @@ import com.arabicpagebuilder.core.session.PropertySpec
 import com.arabicpagebuilder.core.session.PropertySpecs
 import kotlinx.coroutines.delay
 
+/** نوع الملف المطلوب اختياره من الجهاز. */
+enum class PickKind(val mimeTypes: Array<String>) {
+    IMAGE(arrayOf("image/*")),
+    MEDIA(arrayOf("video/*", "audio/*")),
+    FILE(arrayOf("*/*")),
+}
+
 @Composable
-fun PropertiesPanel(state: EditorState, onPickImage: () -> Unit) {
+fun PropertiesPanel(state: EditorState, onPick: (PickKind, String) -> Unit) {
     val element = state.selected
     if (element == null) {
         Text("اختر عنصرًا من القائمة أولًا.", Modifier.padding(16.dp))
@@ -57,7 +64,7 @@ fun PropertiesPanel(state: EditorState, onPickImage: () -> Unit) {
                     spec = spec,
                     current = element.props[spec.key].orEmpty(),
                     onCommit = { value -> state.apply { it.setProperty(spec.key, value) } },
-                    onPickImage = onPickImage,
+                    onPick = { kind -> onPick(kind, spec.key) },
                 )
             }
         }
@@ -65,10 +72,10 @@ fun PropertiesPanel(state: EditorState, onPickImage: () -> Unit) {
 }
 
 @Composable
-private fun PropertyEditor(spec: PropertySpec, current: String, onCommit: (String) -> Unit, onPickImage: () -> Unit) {
+private fun PropertyEditor(spec: PropertySpec, current: String, onCommit: (String) -> Unit, onPick: (PickKind) -> Unit) {
     Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
         Text(spec.label, style = MaterialTheme.typography.labelLarge)
-        if (spec.kind == PropertyKind.CHOICE) ChoiceRow(spec, current, onCommit) else TextEditor(spec, current, onCommit, onPickImage)
+        if (spec.kind == PropertyKind.CHOICE) ChoiceRow(spec, current, onCommit) else TextEditor(spec, current, onCommit, onPick)
     }
 }
 
@@ -83,7 +90,7 @@ private fun ChoiceRow(spec: PropertySpec, current: String, onCommit: (String) ->
 }
 
 @Composable
-private fun TextEditor(spec: PropertySpec, current: String, onCommit: (String) -> Unit, onPickImage: () -> Unit) {
+private fun TextEditor(spec: PropertySpec, current: String, onCommit: (String) -> Unit, onPick: (PickKind) -> Unit) {
     // النص المحلي يُعاد ضبطه كلما تغيّرت القيمة المحفوظة (مثل التراجع).
     var text by remember(current) { mutableStateOf(current) }
     val error = PropertySpecs.validate(spec, text)
@@ -103,7 +110,7 @@ private fun TextEditor(spec: PropertySpec, current: String, onCommit: (String) -
         minLines = if (spec.kind == PropertyKind.MULTILINE) 2 else 1,
         isError = error != null,
         textStyle = style,
-        keyboardOptions = KeyboardOptions(keyboardType = if (spec.kind == PropertyKind.URL || spec.kind == PropertyKind.IMAGE_SOURCE) KeyboardType.Uri else KeyboardType.Text),
+        keyboardOptions = KeyboardOptions(keyboardType = keyboardFor(spec.kind)),
         modifier = Modifier.fillMaxWidth(),
     )
     if (error != null) Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
@@ -127,9 +134,22 @@ private fun TextEditor(spec: PropertySpec, current: String, onCommit: (String) -
             }
             TextButton(onClick = { text = ""; onCommit("") }, enabled = current.isNotEmpty()) { Text("مسح") }
         }
-        PropertyKind.IMAGE_SOURCE -> Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = onPickImage) { Text("اختيار صورة من الجهاز") }
-        }
+        PropertyKind.IMAGE_SOURCE -> PickButton("اختيار صورة من الجهاز") { onPick(PickKind.IMAGE) }
+        PropertyKind.MEDIA_SOURCE -> PickButton("اختيار فيديو أو صوت من الجهاز") { onPick(PickKind.MEDIA) }
+        PropertyKind.FILE_SOURCE -> PickButton("اختيار ملف من الجهاز") { onPick(PickKind.FILE) }
         else -> Unit
     }
+}
+
+@Composable
+private fun PickButton(label: String, onClick: () -> Unit) {
+    Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedButton(onClick = onClick) { Text(label) }
+    }
+}
+
+private fun keyboardFor(kind: PropertyKind): KeyboardType = when (kind) {
+    PropertyKind.URL, PropertyKind.HTTPS_URL, PropertyKind.IMAGE_SOURCE, PropertyKind.MEDIA_SOURCE, PropertyKind.FILE_SOURCE -> KeyboardType.Uri
+    PropertyKind.PHONE -> KeyboardType.Phone
+    else -> KeyboardType.Text
 }

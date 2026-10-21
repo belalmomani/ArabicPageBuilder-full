@@ -1,6 +1,9 @@
 package com.arabicpagebuilder.ui
 
 import com.arabicpagebuilder.core.edit.EditError
+import com.arabicpagebuilder.core.export.ExportError
+import com.arabicpagebuilder.core.export.ExportWarning
+import com.arabicpagebuilder.core.export.ExportWarningCode
 import com.arabicpagebuilder.core.generator.WarningCode
 import com.arabicpagebuilder.core.storage.StoreError
 import java.text.SimpleDateFormat
@@ -48,6 +51,27 @@ object Messages {
         WarningCode.MISSING_ALT -> "صورة بلا نص بديل"
         WarningCode.INVALID_STYLE_VALUE -> "قيمة تنسيق غير صالحة (تُجوهلت)"
         WarningCode.BUTTON_WITHOUT_ACTION -> "زر بلا رابط (يظهر معطّلًا)"
+        WarningCode.MISSING_MEDIA_SOURCE -> "فيديو أو صوت بلا مصدر (لا يظهر)"
+        WarningCode.INVALID_MEDIA_SOURCE -> "مصدر وسائط غير صالح (حُذف العنصر)"
+        WarningCode.INVALID_PHONE -> "رقم هاتف مفقود أو غير صالح (يظهر الزر معطّلًا)"
+        WarningCode.SUBMIT_OUTSIDE_FORM -> "زر إرسال خارج أي نموذج (يظهر معطّلًا)"
+        WarningCode.FORM_WITHOUT_ACTION -> "نموذج بلا رابط استقبال: لن تُرسَل بياناته قبل ربطه بخادم أو خدمة خارجية"
+        WarningCode.INVALID_FORM_ACTION -> "رابط استقبال النموذج غير صالح (يلزم https)"
+        WarningCode.INVALID_FIELD_NAME -> "حقل بلا اسم صالح (لن تُرسَل قيمته)"
+    }
+
+    fun exportError(e: ExportError, detail: String?): String = when (e) {
+        ExportError.ASSET_TOO_LARGE -> "ملف كبير جدًا داخل المشروع${detail.suffix2()}"
+        ExportError.TOTAL_TOO_LARGE -> "حجم الموقع الكلي أكبر من الحد المسموح."
+        ExportError.IO_ERROR -> "تعذرت الكتابة (ربما المساحة ممتلئة)${detail.suffix2()}"
+        ExportError.VERIFICATION_FAILED -> "فشل التحقق من الملف الناتج${detail.suffix2()}"
+    }
+
+    private fun String?.suffix2(): String = if (this.isNullOrBlank()) "." else ": $this"
+
+    fun exportWarning(w: ExportWarning): String = when (w.code) {
+        ExportWarningCode.MISSING_ASSET -> "ملف مفقود لم يُضمَّن: ${w.path}"
+        ExportWarningCode.LOCAL_LINK_TARGET_MISSING -> "رابط داخلي إلى ملف غير موجود: ${w.path}"
     }
 
     fun formatDate(millis: Long): String =

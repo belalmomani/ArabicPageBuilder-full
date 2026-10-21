@@ -161,6 +161,13 @@ class ProjectStore(
         return all.sortedWith(compareBy<ProjectSummary> { it.corrupt }.thenByDescending { it.modifiedAt }.thenBy { it.name })
     }
 
+    /** يحذف مجلدات الاستيراد المؤقتة (.import-*) التي تركها انقطاع مفاجئ وأقدم من [olderThanMillis]. يُرجع عددها. */
+    fun cleanupStaleTemp(olderThanMillis: Long = 60L * 60 * 1000): Int {
+        val limit = clock() - olderThanMillis
+        val stale = root.listFiles { f -> f.isDirectory && f.name.startsWith(".import-") && f.lastModified() < limit } ?: return 0
+        return stale.count { it.deleteRecursively() }
+    }
+
     // ---- الأصول ----
 
     /** مصدر أصول المشروع للمصدّر؛ لا يعطي إلا ملفات داخل assets/ وبعد فحص المسار. */
@@ -174,7 +181,7 @@ class ProjectStore(
         val dir = projectDir(id) ?: return@io StoreResult.Err(StoreError.INVALID_ID)
         if (!dir.isDirectory) return@io StoreResult.Err(StoreError.NOT_FOUND)
         val parsed = AssetNames.parse(originalName) ?: return@io StoreResult.Err(StoreError.ASSET_NOT_ALLOWED, originalName)
-        val sub = if (parsed.ext in AssetNames.IMAGE_EXT) "images" else "media"
+        val sub = AssetNames.folderFor(parsed.ext) ?: return@io StoreResult.Err(StoreError.ASSET_NOT_ALLOWED, originalName)
         val targetDir = File(dir, "assets/$sub")
         if (!targetDir.isDirectory && !targetDir.mkdirs()) return@io StoreResult.Err(StoreError.IO_ERROR, "تعذر إنشاء مجلد الأصول")
         var candidate = "${parsed.base}.${parsed.ext}"

@@ -1,11 +1,15 @@
 package com.arabicpagebuilder.core.session
 
 import com.arabicpagebuilder.core.generator.CssSanitizer
+import com.arabicpagebuilder.core.generator.PhoneSanitizer
 import com.arabicpagebuilder.core.generator.UrlSanitizer
 import com.arabicpagebuilder.core.model.ElementType
 import com.arabicpagebuilder.core.storage.ProjectFormat
 
-enum class PropertyKind { TEXT, MULTILINE, URL, IMAGE_SOURCE, CHOICE, COLOR, LENGTH, BOX_LENGTHS }
+enum class PropertyKind {
+    TEXT, MULTILINE, URL, HTTPS_URL, IMAGE_SOURCE, MEDIA_SOURCE, FILE_SOURCE, PHONE, FIELD_NAME,
+    CHOICE, COLOR, LENGTH, BOX_LENGTHS,
+}
 
 data class Choice(val value: String, val label: String)
 
@@ -22,6 +26,10 @@ object PropertySpecs {
     val colorPresets: List<String> =
         listOf("#000000", "#ffffff", "#1a73e8", "#d93025", "#188038", "#f9ab00", "#5f6368", "#f1f3f4")
 
+    private val fieldNameRegex = Regex("^[A-Za-z][A-Za-z0-9_-]{0,39}$")
+
+    private fun text(key: String, label: String) = PropertySpec(key, label, PropertyKind.TEXT)
+    private fun multiline(key: String, label: String) = PropertySpec(key, label, PropertyKind.MULTILINE)
     private fun color(key: String, label: String) = PropertySpec(key, label, PropertyKind.COLOR)
     private fun length(key: String, label: String) = PropertySpec(key, label, PropertyKind.LENGTH)
     private fun box(key: String, label: String) = PropertySpec(key, label, PropertyKind.BOX_LENGTHS)
@@ -46,6 +54,10 @@ object PropertySpecs {
         "shadow", "الظل", PropertyKind.CHOICE,
         listOf(Choice("none", "بلا"), Choice("sm", "خفيف"), Choice("md", "متوسط"), Choice("lg", "كبير")),
     )
+    private val required = PropertySpec(
+        "required", "مطلوب", PropertyKind.CHOICE,
+        listOf(Choice("true", "نعم"), Choice("false", "لا")),
+    )
 
     private val containerSpecs = listOf(
         color("background", "لون الخلفية"),
@@ -63,6 +75,27 @@ object PropertySpecs {
         textDirection,
     )
 
+    private val buttonStyleSpecs = listOf(
+        color("background", "لون الخلفية"),
+        color("color", "لون النص"),
+        length("fontSize", "حجم الخط"),
+        box("radius", "نصف قطر الزوايا"),
+        box("padding", "المسافة الداخلية"),
+        box("margin", "المسافة الخارجية"),
+        length("width", "العرض"),
+    )
+
+    private val inlineTextSpecs = listOf(
+        color("color", "لون النص"),
+        length("fontSize", "حجم الخط"),
+        fontFamily,
+    )
+
+    private fun fieldSpecs(vararg extra: PropertySpec) = listOf(
+        text("label", "العنوان"),
+        PropertySpec("name", "اسم الحقل (حروف لاتينية)", PropertyKind.FIELD_NAME),
+    ) + extra.toList() + listOf(required, box("margin", "المسافة الخارجية"), length("width", "العرض"))
+
     fun forType(type: ElementType): List<PropertySpec> = when (type) {
         ElementType.PAGE_ROOT -> listOf(
             color("background", "لون خلفية الصفحة"),
@@ -71,7 +104,7 @@ object PropertySpecs {
             textDirection,
         )
         ElementType.HEADING -> listOf(
-            PropertySpec("text", "النص", PropertyKind.MULTILINE),
+            multiline("text", "النص"),
             PropertySpec("level", "المستوى", PropertyKind.CHOICE, listOf(Choice("1", "رئيسي"), Choice("2", "فرعي"), Choice("3", "صغير"))),
             color("color", "لون النص"),
             length("fontSize", "حجم الخط"),
@@ -81,7 +114,7 @@ object PropertySpecs {
             box("margin", "المسافة الخارجية"),
         )
         ElementType.PARAGRAPH -> listOf(
-            PropertySpec("text", "النص", PropertyKind.MULTILINE),
+            multiline("text", "النص"),
             color("color", "لون النص"),
             length("fontSize", "حجم الخط"),
             fontFamily,
@@ -89,34 +122,91 @@ object PropertySpecs {
             textDirection,
             box("margin", "المسافة الخارجية"),
         )
+        ElementType.TEXT, ElementType.BOLD, ElementType.ITALIC, ElementType.UNDERLINE ->
+            listOf(multiline("text", "النص")) + inlineTextSpecs
+        ElementType.LIST_ORDERED, ElementType.LIST_UNORDERED -> listOf(
+            multiline("items", "العناصر (كل سطر عنصر)"),
+            color("color", "لون النص"),
+            length("fontSize", "حجم الخط"),
+            textAlign,
+            box("margin", "المسافة الخارجية"),
+        )
+        ElementType.QUOTE -> listOf(
+            multiline("text", "نص الاقتباس"),
+            text("cite", "المصدر"),
+            color("color", "لون النص"),
+            length("fontSize", "حجم الخط"),
+            textAlign,
+            box("margin", "المسافة الخارجية"),
+        )
+        ElementType.DIVIDER -> listOf(color("borderColor", "اللون"), length("width", "العرض"), box("margin", "المسافة الخارجية"))
+        ElementType.SPACER -> listOf(length("height", "الارتفاع"))
         ElementType.IMAGE -> listOf(
             PropertySpec("src", "مصدر الصورة", PropertyKind.IMAGE_SOURCE),
-            PropertySpec("alt", "النص البديل", PropertyKind.TEXT),
+            text("alt", "النص البديل"),
             length("width", "العرض"),
             length("height", "الارتفاع"),
             box("radius", "نصف قطر الزوايا"),
             box("margin", "المسافة الخارجية"),
             shadow,
         )
+        ElementType.GALLERY -> listOf(
+            length("gap", "المسافة بين الصور"),
+            color("background", "لون الخلفية"),
+            box("padding", "المسافة الداخلية"),
+            box("margin", "المسافة الخارجية"),
+            box("radius", "نصف قطر الزوايا"),
+        )
+        ElementType.VIDEO -> listOf(
+            PropertySpec("src", "ملف الفيديو أو رابطه", PropertyKind.MEDIA_SOURCE),
+            length("width", "العرض"),
+            length("height", "الارتفاع"),
+            box("radius", "نصف قطر الزوايا"),
+            box("margin", "المسافة الخارجية"),
+        )
+        ElementType.AUDIO -> listOf(
+            PropertySpec("src", "ملف الصوت أو رابطه", PropertyKind.MEDIA_SOURCE),
+            length("width", "العرض"),
+            box("margin", "المسافة الخارجية"),
+        )
         ElementType.LINK -> listOf(
-            PropertySpec("text", "النص", PropertyKind.TEXT),
+            text("text", "النص"),
             PropertySpec("href", "الرابط", PropertyKind.URL),
             color("color", "لون النص"),
             length("fontSize", "حجم الخط"),
             fontFamily,
         )
-        ElementType.BUTTON -> listOf(
-            PropertySpec("text", "النص", PropertyKind.TEXT),
-            PropertySpec("href", "الرابط", PropertyKind.URL),
+        ElementType.BUTTON -> listOf(text("text", "النص"), PropertySpec("href", "الرابط", PropertyKind.URL)) + buttonStyleSpecs
+        ElementType.DOWNLOAD_BUTTON ->
+            listOf(text("text", "النص"), PropertySpec("href", "الملف أو رابطه", PropertyKind.FILE_SOURCE)) + buttonStyleSpecs
+        ElementType.CALL_BUTTON ->
+            listOf(text("text", "النص"), PropertySpec("phone", "رقم الهاتف", PropertyKind.PHONE)) + buttonStyleSpecs
+        ElementType.WHATSAPP_BUTTON -> listOf(
+            text("text", "النص"),
+            PropertySpec("phone", "رقم واتساب (بصيغة دولية)", PropertyKind.PHONE),
+            text("message", "رسالة جاهزة (اختياري)"),
+        ) + buttonStyleSpecs
+        ElementType.SUBMIT_BUTTON -> listOf(text("text", "النص")) + buttonStyleSpecs
+        ElementType.FORM -> listOf(
+            PropertySpec("action", "رابط استقبال النموذج (https)", PropertyKind.HTTPS_URL),
+            PropertySpec("method", "طريقة الإرسال", PropertyKind.CHOICE, listOf(Choice("post", "POST"), Choice("get", "GET"))),
             color("background", "لون الخلفية"),
-            color("color", "لون النص"),
-            length("fontSize", "حجم الخط"),
-            box("radius", "نصف قطر الزوايا"),
             box("padding", "المسافة الداخلية"),
             box("margin", "المسافة الخارجية"),
+            box("radius", "نصف قطر الزوايا"),
             length("width", "العرض"),
         )
-        ElementType.CONTAINER, ElementType.SECTION, ElementType.ROW, ElementType.COLUMN, ElementType.CARD -> containerSpecs
+        ElementType.TEXT_FIELD, ElementType.EMAIL_FIELD, ElementType.NUMBER_FIELD ->
+            fieldSpecs(text("placeholder", "نص إرشادي"))
+        ElementType.TEXTAREA_FIELD -> fieldSpecs(text("placeholder", "نص إرشادي"))
+        ElementType.CHECKBOX -> fieldSpecs()
+        ElementType.SELECT -> fieldSpecs(multiline("options", "الخيارات (كل سطر خيار)"))
+        ElementType.GRID -> listOf(
+            PropertySpec("columns", "عدد الأعمدة", PropertyKind.CHOICE, (1..6).map { Choice(it.toString(), it.toString()) }),
+            length("gap", "المسافة بين الأعمدة"),
+        ) + containerSpecs
+        ElementType.CONTAINER, ElementType.SECTION, ElementType.ROW, ElementType.COLUMN, ElementType.CARD,
+        ElementType.HEADER, ElementType.FOOTER -> containerSpecs
     }
 
     /** رسالة خطأ عربية إن كانت [value] غير صالحة لهذه الخاصية، وإلا null. القيمة الفارغة صالحة (تعني الحذف). */
@@ -128,8 +218,18 @@ object PropertySpecs {
                 if (value.length > ProjectFormat.MAX_PROP_VALUE_LENGTH) "النص طويل جدًا" else null
             PropertyKind.URL ->
                 if (UrlSanitizer.sanitizeLink(v) == null) "رابط غير صالح. المسموح: https وhttp وmailto وtel والمراسي (#) والمسارات النسبية" else null
+            PropertyKind.HTTPS_URL ->
+                if (UrlSanitizer.sanitizeLink(v)?.startsWith("https://", ignoreCase = true) != true) "يلزم رابط يبدأ بـ https://" else null
             PropertyKind.IMAGE_SOURCE ->
                 if (UrlSanitizer.sanitizeImageSource(v) == null) "مصدر غير صالح. استخدم رابط https أو اختر صورة من الجهاز" else null
+            PropertyKind.MEDIA_SOURCE ->
+                if (UrlSanitizer.sanitizeImageSource(v) == null) "مصدر غير صالح. استخدم رابط https أو اختر ملفًا من الجهاز" else null
+            PropertyKind.FILE_SOURCE ->
+                if (UrlSanitizer.sanitizeLink(v) == null) "مسار أو رابط غير صالح. اختر ملفًا من الجهاز أو استخدم رابط https" else null
+            PropertyKind.PHONE ->
+                if (PhoneSanitizer.normalize(v) == null) "رقم غير صالح. مثال: +962790000000 (من 5 إلى 15 رقمًا)" else null
+            PropertyKind.FIELD_NAME ->
+                if (!fieldNameRegex.matches(v)) "اسم غير صالح. يبدأ بحرف لاتيني ثم حروف أو أرقام أو _ أو - (حتى 40 حرفًا)" else null
             PropertyKind.CHOICE ->
                 if (spec.choices.none { it.value == v }) "قيمة غير مدعومة" else null
             PropertyKind.COLOR ->

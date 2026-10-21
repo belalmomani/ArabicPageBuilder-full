@@ -35,7 +35,7 @@ object CssSanitizer {
     val styleKeys: Set<String> = setOf(
         "color", "background", "fontSize", "fontFamily", "textAlign", "textDirection",
         "padding", "margin", "borderWidth", "borderColor", "borderStyle", "radius",
-        "shadow", "width", "height",
+        "shadow", "width", "height", "columns", "gap",
     )
 
     fun convert(props: Map<String, String>): CssResult {
@@ -68,6 +68,8 @@ object CssSanitizer {
         "shadow" -> shadows[v]?.let { "box-shadow: $it" }
         "width" -> if (v == "auto" || positiveLength.matches(v)) "width: $v" else null
         "height" -> if (v == "auto" || positiveLength.matches(v)) "height: $v" else null
+        "columns" -> if (v in setOf("1", "2", "3", "4", "5", "6")) "grid-template-columns: repeat($v, minmax(0, 1fr))" else null
+        "gap" -> if (positiveLength.matches(v)) "gap: $v" else null
         else -> null
     }
 
