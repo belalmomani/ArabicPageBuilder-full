@@ -50,6 +50,8 @@ class EditorState(private val store: ProjectStore, loaded: LoadedProject) {
 
     fun moveTargets(): List<TreeRow> = session.validMoveTargets()
 
+    fun newInteractionId(): String = session.newInteractionId()
+
     fun select(id: String?) {
         session.select(id)
         sync()

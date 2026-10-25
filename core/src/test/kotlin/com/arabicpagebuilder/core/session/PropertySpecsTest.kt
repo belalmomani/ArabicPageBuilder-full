@@ -38,7 +38,7 @@ class PropertySpecsTest {
 
     @Test
     fun allStyleSpecKeysAreKnownToTheCssSanitizer() {
-        val nonStyle = setOf("text", "level", "href", "src", "alt", "items", "cite", "phone", "message", "label", "name", "placeholder", "required", "options", "action", "method", "active", "itemStyle", "mobile", "sticky")
+        val nonStyle = setOf("text", "level", "href", "src", "alt", "items", "cite", "phone", "message", "label", "name", "placeholder", "required", "options", "action", "method", "active", "itemStyle", "mobile", "sticky", "hidden")
         for (t in ElementType.entries) for (s in PropertySpecs.forType(t)) {
             val known = com.arabicpagebuilder.core.generator.CssSanitizer.allKeys.contains(s.key)
             if (s.key !in nonStyle) assertTrue(known, "${t.name}.${s.key}")

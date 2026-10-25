@@ -7,6 +7,7 @@ data class PageDocument(
     val title: String,
     val direction: TextDirection,
     val root: Element,
+    val interactions: List<Interaction> = emptyList(),
 ) {
     init {
         require(root.type == ElementType.PAGE_ROOT) { "جذر الصفحة يجب أن يكون من نوع PAGE_ROOT" }

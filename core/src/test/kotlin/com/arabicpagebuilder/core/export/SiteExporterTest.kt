@@ -2,6 +2,11 @@ package com.arabicpagebuilder.core.export
 
 import com.arabicpagebuilder.core.generator.HtmlGenerator
 import com.arabicpagebuilder.core.model.Element
+import com.arabicpagebuilder.core.model.TriggerType
+import com.arabicpagebuilder.core.model.Trigger
+import com.arabicpagebuilder.core.model.Interaction
+import com.arabicpagebuilder.core.model.ActionType
+import com.arabicpagebuilder.core.model.Action
 import com.arabicpagebuilder.core.model.ElementType
 import com.arabicpagebuilder.core.model.IdGenerator
 import com.arabicpagebuilder.core.model.PageDocument
@@ -328,5 +333,35 @@ class SiteExporterTest {
         assertContentEquals(png, File(site, "assets/images/صورة.png").readBytes())
         assertTrue(File(site, "css/style.css").readText(Charsets.UTF_8).contains("#123456"))
         assertTrue(File(site, "README.txt").readText(Charsets.UTF_8).contains("index.html"))
+    }
+
+    @Test
+    fun interactionScriptIsExportedReferencedAndVerified() = withTempDir { dir ->
+        val d = doc(
+            Element("btn", ElementType.BUTTON, mapOf("text" to "تفاصيل")),
+            Element("details", ElementType.SECTION, mapOf("hidden" to "true")),
+        ).copy(
+            interactions = listOf(
+                Interaction("r1", "", Trigger(TriggerType.CLICK, "btn"), true, emptyList(), listOf(Action(ActionType.SHOW, "details"))),
+            ),
+        )
+        val zipFile = File(dir, "site.zip")
+        val success = assertIs<ExportResult.Success>(SiteExporter.exportToFile(d, MapAssets(emptyMap()), zipFile))
+        assertTrue("website-project/js/main.js" in success.entries)
+        assertEquals(emptyList(), ExportVerifier.verify(zipFile)) // ‏src="js/main.js" موجود داخل الأرشيف
+        val zip = readZip(zipFile.readBytes())
+        assertTrue(String(zip.getValue("website-project/index.html"), Charsets.UTF_8).contains("<script src=\"js/main.js\" defer></script>"))
+        assertTrue(String(zip.getValue("website-project/js/main.js"), Charsets.UTF_8).contains("\"on\":\"click\""))
+        assertTrue(String(zip.getValue("website-project/README.txt"), Charsets.UTF_8).contains("js/main.js"))
+    }
+
+    @Test
+    fun noScriptEntryWhenThereAreNoInteractions() {
+        val (r, bytes) = exportBytes(doc(Element("p", ElementType.PARAGRAPH, mapOf("text" to "x"))), MapAssets(emptyMap()))
+        assertIs<ExportResult.Success>(r)
+        val zip = readZip(bytes)
+        assertFalse(zip.keys.any { it.endsWith(".js") })
+        assertFalse(String(zip.getValue("website-project/README.txt"), Charsets.UTF_8).contains("js/main.js"))
+        assertTrue(String(zip.getValue("website-project/README.txt"), Charsets.UTF_8).contains("ثابت"))
     }
 }

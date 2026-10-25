@@ -1,6 +1,9 @@
 package com.arabicpagebuilder.editor
 
+import android.annotation.SuppressLint
 import android.content.Context
+import android.webkit.JsResult
+import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
@@ -115,6 +118,18 @@ private fun createPreviewWebView(context: Context): WebView = WebView(context).a
     settings.setSupportZoom(false)
     settings.cacheMode = WebSettings.LOAD_NO_CACHE
     settings.mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
+    // رسائل «اعرض رسالة» من التفاعلات تظهر كنافذة تنبيه. لا نوافذ أخرى (confirm/prompt) ولا ملفات.
+    webChromeClient = object : WebChromeClient() {
+        override fun onJsAlert(view: WebView?, url: String?, message: String?, result: JsResult?): Boolean {
+            val ctx = view?.context ?: return false
+            android.app.AlertDialog.Builder(ctx)
+                .setMessage(message)
+                .setPositiveButton("حسنًا") { _, _ -> result?.confirm() }
+                .setOnCancelListener { result?.cancel() }
+                .show()
+            return true
+        }
+    }
     webViewClient = object : WebViewClient() {
         // لا تنقّل داخل المعاينة: الروابط لا تعمل هنا عمدًا.
         override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean = true
@@ -145,15 +160,30 @@ private fun createPreviewWebView(context: Context): WebView = WebView(context).a
     }
 }
 
+@SuppressLint("SetJavaScriptEnabled")
 private fun updatePreview(wv: WebView, site: GeneratedSite, assets: AssetSource?, allowExternal: Boolean) {
     val data = wv.tag as PreviewData
     data.assets = assets
     data.allowExternal = allowExternal
-    // نضمّن CSS داخل صفحة المعاينة فقط (ملف التصدير الحقيقي يبقى منفصلًا) لتفادي أي تخزين مؤقت قديم.
-    val html = site.indexHtml.replace(
+    val script = site.mainJs
+    // JavaScript لا يُفعَّل إلا إن كان للصفحة تفاعلات مرئية صالحة، وسكربتها هو الشيفرة الثابتة المراجَعة فقط
+    // (نصوص المستخدم بيانات مُهرَّبة داخله). لا واجهة JavaScript↔Kotlin أبدًا.
+    wv.settings.javaScriptEnabled = script != null
+
+    // نضمّن CSS والسكربت داخل صفحة المعاينة فقط (ملفات التصدير الحقيقية تبقى منفصلة) لتفادي أي تخزين مؤقت قديم.
+    var html = site.indexHtml.replace(
         "<link rel=\"stylesheet\" href=\"css/style.css\">",
         "<style>\n${site.styleCss}</style>",
     )
+    if (script != null) {
+        html = html.replace("<script src=\"js/main.js\" defer></script>", "<script>\n$script</script>")
+    }
+    // سياسة أمان للمعاينة: سكربت وتنسيق مضمَّنان فقط، والصور والوسائط من أصول المشروع (وخارجية فقط إن فعّلتها)، ولا إرسال نماذج.
+    val external = if (allowExternal) " https:" else ""
+    val csp = "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; " +
+        "img-src https://$PREVIEW_HOST$external; media-src https://$PREVIEW_HOST$external; form-action 'none'; base-uri 'none'"
+    html = html.replaceFirst("<head>\n", "<head>\n  <meta http-equiv=\"Content-Security-Policy\" content=\"$csp\">\n")
+
     if (data.lastHtml != html || data.lastAllowExternal != allowExternal) {
         data.pendingScrollY = wv.scrollY // نعيد موضع التمرير بعد إعادة التحميل
         data.lastHtml = html

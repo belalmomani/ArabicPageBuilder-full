@@ -12,11 +12,13 @@ import com.arabicpagebuilder.core.model.subtree
 object HtmlGenerator {
     const val INDEX_PATH = "index.html"
     const val CSS_PATH = "css/style.css"
+    const val JS_PATH = "js/main.js"
 
     private val FIELD_NAME = Regex("^[A-Za-z][A-Za-z0-9_-]{0,39}$")
 
     private val BASE_CSS = """
         |*, *::before, *::after { box-sizing: border-box; }
+        |[hidden] { display: none !important; }
         |body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Tahoma, Arial, sans-serif; line-height: 1.6; }
         |img, video, audio { max-width: 100%; }
         |img, video { height: auto; }
@@ -65,7 +67,10 @@ object HtmlGenerator {
     fun generate(doc: PageDocument): GeneratedSite {
         val warnings = ArrayList<GenerationWarning>()
         val body = StringBuilder()
-        for (child in doc.root.children) render(child, 2, body, warnings, inForm = false)
+        val plan = InteractionScript.plan(doc, warnings)
+        // نعلّم عناصر المحفّزات بالضغط (علامة داخلية لا تظهر للمستخدم) ليُعرض الزر/الرابط بلا رابط فعّالًا.
+        val renderRoot = markClickTriggers(doc.root, plan.clickTriggerIds)
+        for (child in renderRoot.children) render(child, 2, body, warnings, inForm = false)
 
         val dir = if (doc.direction == TextDirection.RTL) "rtl" else "ltr"
         val lang = if (doc.direction == TextDirection.RTL) "ar" else "en"
@@ -79,6 +84,7 @@ object HtmlGenerator {
             append("  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n")
             append("  <title>${HtmlEscape.text(title)}</title>\n")
             append("  <link rel=\"stylesheet\" href=\"css/style.css\">\n")
+            if (plan.script != null) append("  <script src=\"js/main.js\" defer></script>\n")
             append("</head>\n")
             append("<body class=\"${className(doc.root)}\">\n")
             append(body)
@@ -88,7 +94,11 @@ object HtmlGenerator {
 
         val css = buildCss(doc, warnings)
         return GeneratedSite(
-            files = linkedMapOf(INDEX_PATH to html, CSS_PATH to css),
+            files = LinkedHashMap<String, String>().apply {
+                put(INDEX_PATH, html)
+                put(CSS_PATH, css)
+                if (plan.script != null) put(JS_PATH, plan.script)
+            },
             warnings = warnings,
         )
     }
@@ -148,7 +158,31 @@ object HtmlGenerator {
         }
     }
 
+    /** عنصر مخفي عند فتح الصفحة (خاصية hidden): نضيف السمة hidden إلى أول وسم من ناتجه. */
     private fun render(e: Element, depth: Int, out: StringBuilder, w: MutableList<GenerationWarning>, inForm: Boolean) {
+        val start = out.length
+        renderElement(e, depth, out, w, inForm)
+        if (e.props["hidden"]?.trim() == "true" && out.length > start) injectHidden(out, start)
+    }
+
+    private fun injectHidden(out: StringBuilder, start: Int) {
+        val open = out.indexOf("<", start)
+        if (open < 0) return
+        var i = open + 1
+        while (i < out.length && out[i] != ' ' && out[i] != '>') i++
+        out.insert(i, " hidden")
+    }
+
+    private const val TRIGGER_MARK = "__trigger"
+
+    /** نسخة من الشجرة تحمل علامة داخلية على عناصر المحفّزات بالضغط؛ لا تُحفظ ولا تُعرض. */
+    private fun markClickTriggers(e: Element, ids: Set<String>): Element {
+        if (ids.isEmpty()) return e
+        val props = if (e.id in ids) e.props + (TRIGGER_MARK to "click") else e.props
+        return e.copy(props = props, children = e.children.map { markClickTriggers(it, ids) })
+    }
+
+    private fun renderElement(e: Element, depth: Int, out: StringBuilder, w: MutableList<GenerationWarning>, inForm: Boolean) {
         val pad = "  ".repeat(depth)
         val cls = className(e)
         val text = e.props["text"].orEmpty()
@@ -201,7 +235,9 @@ object HtmlGenerator {
             // ---- الروابط والأزرار ----
             ElementType.LINK -> {
                 val href = checkedLink(e, w)
-                if (href == null) {
+                if (href == null && e.props[TRIGGER_MARK] == "click" && e.props["href"].isNullOrBlank()) {
+                    out.append("$pad<a class=\"$cls\" href=\"#\">${inline(text)}</a>\n")
+                } else if (href == null) {
                     out.append("$pad<span class=\"$cls\">${inline(text)}</span>\n")
                 } else {
                     out.append("$pad<a class=\"$cls\" href=\"${HtmlEscape.attr(href)}\"${relFor(href)}>${inline(text)}</a>\n")
@@ -209,7 +245,10 @@ object HtmlGenerator {
             }
             ElementType.BUTTON -> {
                 val href = checkedLink(e, w)
-                if (href == null) {
+                if (href == null && e.props[TRIGGER_MARK] == "click" && e.props["href"].isNullOrBlank()) {
+                    // للزر تفاعل مرئي عند الضغط: يُعرض فعّالًا (السكربت هو الإجراء).
+                    out.append("$pad<button type=\"button\" class=\"$cls btn\">${inline(text)}</button>\n")
+                } else if (href == null) {
                     // لا يوجد إجراء: نعرض الزر معطّلًا كي لا يوحي بأنه يعمل.
                     if (e.props["href"].isNullOrBlank()) w.add(GenerationWarning(e.id, WarningCode.BUTTON_WITHOUT_ACTION))
                     out.append("$pad<button type=\"button\" class=\"$cls btn\" disabled>${inline(text)}</button>\n")

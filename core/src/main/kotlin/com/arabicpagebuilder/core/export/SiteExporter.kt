@@ -51,7 +51,7 @@ object SiteExporter {
             }
         }
 
-        val readme = ReadmeBuilder.build(doc.title, warnings, site.warnings)
+        val readme = ReadmeBuilder.build(doc.title, warnings, site.warnings, hasScript = site.mainJs != null)
 
         // 2) الكتابة.
         val entries = ArrayList<String>()
@@ -67,8 +67,7 @@ object SiteExporter {
                 zip.closeEntry()
                 entries.add("$ROOT_DIR/$name")
             }
-            putBytes(HtmlGenerator.INDEX_PATH, site.indexHtml)
-            putBytes(HtmlGenerator.CSS_PATH, site.styleCss)
+            for ((path, content) in site.files) putBytes(path, content)
             for (path in toCopy) {
                 val input = assets.open(path) ?: throw ExportAbort(ExportError.IO_ERROR, "تعذر فتح الملف: $path")
                 zip.putNextEntry(newEntry("$ROOT_DIR/$path"))

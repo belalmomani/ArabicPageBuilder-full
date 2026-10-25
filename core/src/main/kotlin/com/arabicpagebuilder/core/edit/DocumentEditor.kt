@@ -2,7 +2,9 @@ package com.arabicpagebuilder.core.edit
 
 import com.arabicpagebuilder.core.model.Element
 import com.arabicpagebuilder.core.model.ElementType
+import com.arabicpagebuilder.core.interaction.InteractionValidator
 import com.arabicpagebuilder.core.model.IdGenerator
+import com.arabicpagebuilder.core.model.Interaction
 import com.arabicpagebuilder.core.model.PageDocument
 import com.arabicpagebuilder.core.model.find
 import com.arabicpagebuilder.core.model.findParent
@@ -67,6 +69,34 @@ object DocumentEditor {
         }
         return ok(doc.copy(root = updated))
     }
+
+    // ---- التفاعلات ----
+
+    /** يضيف قاعدة تفاعل (قد تكون غير مكتملة؛ الصلاحية تُفحص عند التوليد وتُعرض في المحرر). */
+    fun addInteraction(doc: PageDocument, interaction: Interaction): EditResult {
+        if (!wellFormed(interaction)) return fail(EditError.INVALID_INTERACTION)
+        if (doc.interactions.size >= InteractionValidator.MAX_INTERACTIONS) return fail(EditError.TOO_MANY_INTERACTIONS)
+        if (doc.interactions.any { it.id == interaction.id }) return fail(EditError.DUPLICATE_ID)
+        return ok(doc.copy(interactions = doc.interactions + interaction))
+    }
+
+    fun updateInteraction(doc: PageDocument, interaction: Interaction): EditResult {
+        if (!wellFormed(interaction)) return fail(EditError.INVALID_INTERACTION)
+        if (doc.interactions.none { it.id == interaction.id }) return fail(EditError.ELEMENT_NOT_FOUND)
+        return ok(doc.copy(interactions = doc.interactions.map { if (it.id == interaction.id) interaction else it }))
+    }
+
+    fun removeInteraction(doc: PageDocument, id: String): EditResult {
+        if (doc.interactions.none { it.id == id }) return fail(EditError.ELEMENT_NOT_FOUND)
+        return ok(doc.copy(interactions = doc.interactions.filter { it.id != id }))
+    }
+
+    /** حدود الحجم فقط (لا تمنع الإشارات المعلقة؛ المحرر يعرضها كمشكلة). */
+    private fun wellFormed(i: Interaction): Boolean =
+        i.id.isNotBlank() && i.id.length <= 128 && i.name.length <= InteractionValidator.MAX_NAME_LENGTH &&
+            i.conditions.size <= InteractionValidator.MAX_STEPS &&
+            i.actions.size <= InteractionValidator.MAX_STEPS && i.elseActions.size <= InteractionValidator.MAX_STEPS &&
+            (i.conditions.map { it.value } + (i.actions + i.elseActions).map { it.value }).all { it.length <= InteractionValidator.MAX_VALUE_LENGTH }
 
     // ---- تفاصيل داخلية ----
 

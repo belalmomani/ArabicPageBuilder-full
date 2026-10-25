@@ -7,6 +7,7 @@ import com.arabicpagebuilder.core.edit.History
 import com.arabicpagebuilder.core.model.Element
 import com.arabicpagebuilder.core.model.ElementType
 import com.arabicpagebuilder.core.model.IdGenerator
+import com.arabicpagebuilder.core.model.Interaction
 import com.arabicpagebuilder.core.model.PageDocument
 import com.arabicpagebuilder.core.model.UuidIdGenerator
 import com.arabicpagebuilder.core.model.find
@@ -107,6 +108,20 @@ class EditorSession(
         }
         return commit(result, newSelection = element.id)
     }
+
+    // ---- التفاعلات (البرمجة المرئية) ----
+
+    /** معرّف جديد لقاعدة تفاعل. */
+    fun newInteractionId(): String = ids.next()
+
+    fun addInteraction(interaction: Interaction): EditResult =
+        commit(DocumentEditor.addInteraction(document, interaction))
+
+    fun updateInteraction(interaction: Interaction): EditResult =
+        commit(DocumentEditor.updateInteraction(document, interaction))
+
+    fun removeInteraction(id: String): EditResult =
+        commit(DocumentEditor.removeInteraction(document, id))
 
     /** يضبط خاصية للعنصر المحدد؛ [value] = null أو فارغ يحذفها. */
     fun setProperty(key: String, value: String?): EditResult {

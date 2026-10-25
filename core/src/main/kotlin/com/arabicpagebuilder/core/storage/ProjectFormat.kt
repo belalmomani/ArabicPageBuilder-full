@@ -1,6 +1,14 @@
 package com.arabicpagebuilder.core.storage
 
 import com.arabicpagebuilder.core.SchemaVersion
+import com.arabicpagebuilder.core.interaction.InteractionValidator
+import com.arabicpagebuilder.core.model.Action
+import com.arabicpagebuilder.core.model.ActionType
+import com.arabicpagebuilder.core.model.Condition
+import com.arabicpagebuilder.core.model.ConditionType
+import com.arabicpagebuilder.core.model.Interaction
+import com.arabicpagebuilder.core.model.Trigger
+import com.arabicpagebuilder.core.model.TriggerType
 import com.arabicpagebuilder.core.model.Element
 import com.arabicpagebuilder.core.model.ElementType
 import com.arabicpagebuilder.core.model.PageDocument
@@ -39,6 +47,27 @@ internal data class ElementDto(
 )
 
 @Serializable
+internal data class TriggerDto(val type: String, val target: String = "")
+
+@Serializable
+internal data class ConditionDto(val type: String, val target: String = "", val value: String = "")
+
+@Serializable
+internal data class ActionDto(val type: String, val target: String = "", val value: String = "")
+
+@Serializable
+internal data class InteractionDto(
+    val id: String,
+    val name: String = "",
+    val trigger: TriggerDto,
+    val matchAll: Boolean = true,
+    val conditions: List<ConditionDto> = emptyList(),
+    val actions: List<ActionDto> = emptyList(),
+    val elseActions: List<ActionDto> = emptyList(),
+    val preventDefault: Boolean = true,
+)
+
+@Serializable
 internal data class ProjectDto(
     val schemaVersion: Int,
     val name: String,
@@ -47,6 +76,7 @@ internal data class ProjectDto(
     val title: String,
     val direction: String,
     val root: ElementDto,
+    val interactions: List<InteractionDto> = emptyList(),
 )
 
 /**
@@ -80,6 +110,7 @@ object ProjectFormat {
             title = data.document.title,
             direction = data.document.direction.name,
             root = toDto(data.document.root),
+            interactions = data.document.interactions.map { toDto(it) },
         )
         return json.encodeToString(ProjectDto.serializer(), dto)
     }
@@ -108,6 +139,17 @@ object ProjectFormat {
 
     // ---- تحويل ----
 
+    private fun toDto(i: Interaction): InteractionDto = InteractionDto(
+        id = i.id,
+        name = i.name,
+        trigger = TriggerDto(i.trigger.type.name, i.trigger.target),
+        matchAll = i.matchAll,
+        conditions = i.conditions.map { ConditionDto(it.type.name, it.target, it.value) },
+        actions = i.actions.map { ActionDto(it.type.name, it.target, it.value) },
+        elseActions = i.elseActions.map { ActionDto(it.type.name, it.target, it.value) },
+        preventDefault = i.preventDefault,
+    )
+
     private fun toDto(e: Element): ElementDto =
         ElementDto(e.id, e.type.name, e.props, e.children.map { toDto(it) })
 
@@ -123,7 +165,8 @@ object ProjectFormat {
             ?: invalid("اتجاه غير معروف: ${dto.direction}")
         if (dto.root.type != ElementType.PAGE_ROOT.name) invalid("الجذر ليس PAGE_ROOT")
         val root = toElement(dto.root, 1, Ctx(), isRoot = true)
-        return ProjectData(name, dto.createdAt, dto.modifiedAt, PageDocument(dto.title, direction, root))
+        val interactions = toInteractions(dto.interactions)
+        return ProjectData(name, dto.createdAt, dto.modifiedAt, PageDocument(dto.title, direction, root, interactions))
     }
 
     private fun toElement(dto: ElementDto, depth: Int, ctx: Ctx, isRoot: Boolean = false): Element {
@@ -141,6 +184,43 @@ object ProjectFormat {
             if (v.length > MAX_PROP_VALUE_LENGTH) invalid("قيمة خاصية أطول من المسموح")
         }
         return Element(dto.id, type, dto.props, dto.children.map { toElement(it, depth + 1, ctx) })
+    }
+
+    /** تحقق من حدود وأنواع التفاعلات المحفوظة. الإشارات المعلقة إلى عناصر محذوفة مسموحة (يعرضها المحرر كمشكلة). */
+    private fun toInteractions(dtos: List<InteractionDto>): List<Interaction> {
+        if (dtos.size > InteractionValidator.MAX_INTERACTIONS) invalid("عدد التفاعلات أكبر من ${InteractionValidator.MAX_INTERACTIONS}")
+        val seen = HashSet<String>()
+        return dtos.map { d ->
+            if (d.id.isBlank() || d.id.length > MAX_ID_LENGTH || !seen.add(d.id)) invalid("معرّف تفاعل غير صالح أو مكرر")
+            if (d.name.length > InteractionValidator.MAX_NAME_LENGTH) invalid("اسم تفاعل طويل جدًا")
+            if (d.conditions.size > InteractionValidator.MAX_STEPS || d.actions.size > InteractionValidator.MAX_STEPS ||
+                d.elseActions.size > InteractionValidator.MAX_STEPS
+            ) invalid("عدد خطوات التفاعل أكبر من المسموح")
+            val trigger = TriggerType.entries.firstOrNull { it.name == d.trigger.type } ?: invalid("نوع محفّز غير معروف: ${d.trigger.type}")
+            checkLengths(d.trigger.target)
+            Interaction(
+                id = d.id,
+                name = d.name,
+                trigger = Trigger(trigger, d.trigger.target),
+                matchAll = d.matchAll,
+                conditions = d.conditions.map { c ->
+                    checkLengths(c.target, c.value)
+                    Condition(ConditionType.entries.firstOrNull { it.name == c.type } ?: invalid("نوع شرط غير معروف: ${c.type}"), c.target, c.value)
+                },
+                actions = d.actions.map { toAction(it) },
+                elseActions = d.elseActions.map { toAction(it) },
+                preventDefault = d.preventDefault,
+            )
+        }
+    }
+
+    private fun toAction(a: ActionDto): Action {
+        checkLengths(a.target, a.value)
+        return Action(ActionType.entries.firstOrNull { it.name == a.type } ?: invalid("نوع إجراء غير معروف: ${a.type}"), a.target, a.value)
+    }
+
+    private fun checkLengths(vararg values: String) {
+        if (values.any { it.length > InteractionValidator.MAX_VALUE_LENGTH }) invalid("قيمة داخل تفاعل أطول من المسموح")
     }
 
     private fun invalid(detail: String): Nothing = throw FormatException(FormatError.INVALID_STRUCTURE, detail)

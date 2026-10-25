@@ -98,7 +98,7 @@ object PropertySpecs {
 
     /** خصائص العنصر الأساسية ثم خصائص الاستجابة للشاشات (الهاتف/الإخفاء) حيث تنطبق. */
     fun forType(type: ElementType): List<PropertySpec> =
-        (baseSpecs(type) + responsiveSpecs(type) + effectSpecs(type)).sortedBy { groupIndex(groupOf(it)) } // الترتيب ثابت داخل المجموعة
+        (baseSpecs(type) + responsiveSpecs(type) + effectSpecs(type) + visibilitySpecs(type)).sortedBy { groupIndex(groupOf(it)) } // الترتيب ثابت داخل المجموعة
 
     // ---- مجموعات اللوحة: كل جزء من الخصائص تحت عنوان واضح ----
     const val GROUP_CONTENT = "المحتوى"
@@ -106,9 +106,10 @@ object PropertySpecs {
     const val GROUP_MENU_ITEMS = "شكل عناصر القائمة"
     const val GROUP_STYLE = "الشكل والتنسيق"
     const val GROUP_EFFECTS = "التأثيرات والحركة"
+    const val GROUP_INTERACTION = "الظهور والتفاعل"
     const val GROUP_RESPONSIVE = "الاستجابة للشاشات"
 
-    val groupOrder: List<String> = listOf(GROUP_CONTENT, GROUP_MENU_TYPE, GROUP_MENU_ITEMS, GROUP_STYLE, GROUP_EFFECTS, GROUP_RESPONSIVE)
+    val groupOrder: List<String> = listOf(GROUP_CONTENT, GROUP_MENU_TYPE, GROUP_MENU_ITEMS, GROUP_STYLE, GROUP_EFFECTS, GROUP_INTERACTION, GROUP_RESPONSIVE)
 
     private val contentKeys = setOf(
         "text", "label", "name", "placeholder", "items", "active", "cite", "src", "alt", "href", "action",
@@ -120,11 +121,17 @@ object PropertySpecs {
         spec.key == "itemStyle" || spec.key == "mobile" || spec.key.startsWith("menu.") -> GROUP_MENU_TYPE
         spec.key.startsWith("item.") -> GROUP_MENU_ITEMS
         spec.key in CssSanitizer.effectKeys || spec.key == "opacity" -> GROUP_EFFECTS
+        spec.key == "hidden" -> GROUP_INTERACTION
         spec.key.startsWith("m.") || spec.key == CssSanitizer.HIDE_MOBILE || spec.key == CssSanitizer.HIDE_DESKTOP -> GROUP_RESPONSIVE
         else -> GROUP_STYLE
     }
 
     private fun groupIndex(group: String): Int = groupOrder.indexOf(group).let { if (it < 0) groupOrder.size else it }
+
+    /** «مخفي عند فتح الصفحة»: عنصر يبدأ مخفيًا ويُظهره تفاعل مرئي (مثل قسم التفاصيل). */
+    private fun visibilitySpecs(type: ElementType): List<PropertySpec> =
+        if (type == ElementType.PAGE_ROOT) emptyList()
+        else listOf(PropertySpec("hidden", "مخفي عند فتح الصفحة (يُظهره تفاعل)", PropertyKind.CHOICE, listOf(Choice("true", "نعم"), Choice("false", "لا"))))
 
     // ---- التأثيرات والحركة (لكل عنصر) ----
     private val animation = PropertySpec(

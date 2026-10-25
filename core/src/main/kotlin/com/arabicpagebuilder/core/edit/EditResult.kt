@@ -16,6 +16,8 @@ enum class EditError {
     INVALID_PROPERTY_KEY,
     ALREADY_FIRST,
     ALREADY_LAST,
+    TOO_MANY_INTERACTIONS,
+    INVALID_INTERACTION,
 }
 
 sealed interface EditResult {

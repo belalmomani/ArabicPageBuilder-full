@@ -14,6 +14,7 @@ enum class WarningCode {
     FORM_WITHOUT_ACTION,
     INVALID_FORM_ACTION,
     INVALID_FIELD_NAME,
+    INTERACTION_INVALID,
 }
 
 data class GenerationWarning(val elementId: String, val code: WarningCode, val detail: String? = null)
@@ -28,4 +29,7 @@ data class GeneratedSite(
 ) {
     val indexHtml: String get() = files.getValue(HtmlGenerator.INDEX_PATH)
     val styleCss: String get() = files.getValue(HtmlGenerator.CSS_PATH)
+
+    /** سكربت التفاعلات، أو null إن لم توجد تفاعلات صالحة (فلا يُولَّد أي JavaScript). */
+    val mainJs: String? get() = files[HtmlGenerator.JS_PATH]
 }

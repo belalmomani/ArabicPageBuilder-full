@@ -30,15 +30,18 @@ import com.arabicpagebuilder.core.generator.HtmlGenerator
 @Composable
 fun CodeTab(state: EditorState) {
     val site = remember(state.doc) { HtmlGenerator.generate(state.doc) }
-    var showCss by remember { mutableStateOf(false) }
+    var selected by remember { mutableStateOf(HtmlGenerator.INDEX_PATH) }
+    val paths = site.files.keys.toList()
+    val current = if (selected in site.files) selected else HtmlGenerator.INDEX_PATH
     Column(Modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth().padding(8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (!showCss) Button(onClick = {}) { Text("index.html") } else OutlinedButton(onClick = { showCss = false }) { Text("index.html") }
-            if (showCss) Button(onClick = {}) { Text("css/style.css") } else OutlinedButton(onClick = { showCss = true }) { Text("css/style.css") }
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            for (path in paths) {
+                if (path == current) Button(onClick = {}) { Text(path) } else OutlinedButton(onClick = { selected = path }) { Text(path) }
+            }
         }
         SelectionContainer(Modifier.weight(1f)) {
             Text(
-                text = if (showCss) site.styleCss else site.indexHtml,
+                text = site.files.getValue(current),
                 style = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 12.sp, textDirection = TextDirection.Ltr),
                 modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).horizontalScroll(rememberScrollState()).padding(8.dp),
             )

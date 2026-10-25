@@ -26,6 +26,8 @@ object Messages {
         EditError.INVALID_PROPERTY_KEY -> "اسم الخاصية غير صالح."
         EditError.ALREADY_FIRST -> "العنصر في أول الترتيب بالفعل."
         EditError.ALREADY_LAST -> "العنصر في آخر الترتيب بالفعل."
+        EditError.TOO_MANY_INTERACTIONS -> "بلغت الحد الأقصى من التفاعلات (200)."
+        EditError.INVALID_INTERACTION -> "التفاعل يحتوي قيمة أطول من المسموح أو معرّفًا غير صالح."
     }
 
     fun storeError(e: StoreError, detail: String? = null): String = when (e) {
@@ -58,6 +60,7 @@ object Messages {
         WarningCode.FORM_WITHOUT_ACTION -> "نموذج بلا رابط استقبال: لن تُرسَل بياناته قبل ربطه بخادم أو خدمة خارجية"
         WarningCode.INVALID_FORM_ACTION -> "رابط استقبال النموذج غير صالح (يلزم https)"
         WarningCode.INVALID_FIELD_NAME -> "حقل بلا اسم صالح (لن تُرسَل قيمته)"
+        WarningCode.INTERACTION_INVALID -> "تفاعل غير مكتمل أو يشير إلى عنصر محذوف (لن يُصدَّر؛ أكمله من تبويب التفاعل)"
     }
 
     fun exportError(e: ExportError, detail: String?): String = when (e) {

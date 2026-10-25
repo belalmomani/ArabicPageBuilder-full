@@ -78,7 +78,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import kotlin.math.roundToInt
 
-private enum class Tab(val label: String) { DESIGN("التصميم"), PREVIEW("المعاينة"), CODE("الكود") }
+private enum class Tab(val label: String) { DESIGN("التصميم"), PREVIEW("المعاينة"), INTERACT("التفاعل"), CODE("الكود") }
 
 private enum class Panel { LIBRARY, PROPERTIES, MOVE }
 
@@ -259,6 +259,7 @@ fun EditorScreen(container: AppContainer, state: EditorState) {
                 when (tab) {
                     Tab.DESIGN -> DesignTab(state, ctrl, panel, { panel = it }, onPick, ::performDrop)
                     Tab.PREVIEW -> PreviewTab(state, container.prefs.allowExternalPreview) { container.prefs.updateAllowExternalPreview(it) }
+                    Tab.INTERACT -> InteractionsTab(state)
                     Tab.CODE -> CodeTab(state)
                 }
             }
