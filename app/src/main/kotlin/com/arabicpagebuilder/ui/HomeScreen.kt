@@ -58,6 +58,8 @@ fun HomeScreen(container: AppContainer) {
     var loading by remember { mutableStateOf(true) }
     var info by remember { mutableStateOf<String?>(null) }
     var dialog by remember { mutableStateOf<HomeDialog?>(null) }
+    // إن تعطل التطبيق في المرة السابقة نعرض مرة واحدة خيار الاطلاع على السجل ومشاركته.
+    var crashPrompt by remember { mutableStateOf(container.errorLog.unseenCrashes() > 0) }
 
     fun refresh() {
         scope.launch {
@@ -96,7 +98,10 @@ fun HomeScreen(container: AppContainer) {
                             if (missing.isEmpty()) "" else "\nملفات صور مفقودة في الأرشيف (${missing.size}): ${missing.joinToString("، ")}"
                         refresh()
                     }
-                    is StoreResult.Err -> info = Messages.storeError(result.error, result.detail)
+                    is StoreResult.Err -> {
+                        container.logError("فشل استيراد مشروع: ${result.error} ${result.detail.orEmpty()}")
+                        info = Messages.storeError(result.error, result.detail)
+                    }
                 }
             }
         }
@@ -187,6 +192,18 @@ fun HomeScreen(container: AppContainer) {
                 }) { Text("حذف نهائيًا") }
             },
             dismissButton = { TextButton(onClick = { dialog = null }) { Text("إلغاء") } },
+        )
+    }
+
+    if (crashPrompt) {
+        AlertDialog(
+            onDismissRequest = { crashPrompt = false; container.errorLog.markSeen() },
+            title = { Text("تعطل التطبيق في المرة السابقة") },
+            text = { Text("سُجّل العطل على جهازك فقط. يمكنك الاطلاع على التقرير ومشاركته لإصلاح المشكلة. لا يحتوي محتوى مشاريعك ولا يُرسَل تلقائيًا.") },
+            confirmButton = {
+                TextButton(onClick = { crashPrompt = false; container.screen = Screen.ErrorLog }) { Text("عرض السجل") }
+            },
+            dismissButton = { TextButton(onClick = { crashPrompt = false; container.errorLog.markSeen() }) { Text("لاحقًا") } },
         )
     }
 

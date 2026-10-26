@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -45,6 +46,8 @@ fun SettingsScreen(container: AppContainer) {
             }
             Switch(checked = container.prefs.allowExternalPreview, onCheckedChange = { container.prefs.updateAllowExternalPreview(it) })
         }
+        val logCount = remember { container.errorLog.list().size }
+        OutlinedButton(onClick = { container.screen = Screen.ErrorLog }) { Text("سجل الأخطاء ($logCount)") }
         Text("إصدار التطبيق: $versionName", style = MaterialTheme.typography.bodySmall)
         Text("المشاريع تُحفظ على جهازك فقط. لا توجد حسابات ولا خدمات سحابية.", style = MaterialTheme.typography.bodySmall)
     }

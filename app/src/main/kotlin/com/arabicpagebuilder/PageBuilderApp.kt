@@ -5,6 +5,9 @@ import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.arabicpagebuilder.core.log.Breadcrumbs
+import com.arabicpagebuilder.core.log.ErrorLog
+import com.arabicpagebuilder.core.log.LogKind
 import com.arabicpagebuilder.core.storage.LoadedProject
 import com.arabicpagebuilder.core.storage.ProjectArchive
 import com.arabicpagebuilder.core.storage.ProjectStore
@@ -14,12 +17,18 @@ import kotlin.concurrent.thread
 
 class PageBuilderApp : Application() {
     val container: AppContainer by lazy { AppContainer(this) }
+
+    override fun onCreate() {
+        super.onCreate()
+        CrashHandler.install(this, container)
+    }
 }
 
 sealed interface Screen {
     data object Home : Screen
     data object Settings : Screen
     data object Editor : Screen
+    data object ErrorLog : Screen
 }
 
 /** كل ما يعيش طوال عمر التطبيق: المخزن والإعدادات والشاشة الحالية والمحرر المفتوح. */
@@ -28,6 +37,14 @@ class AppContainer(app: Application) {
     val store = ProjectStore(projectsDir)
     val archive = ProjectArchive(store)
     val prefs = AppPrefs(app)
+    val errorLog = ErrorLog(File(app.filesDir, "logs"))
+    val breadcrumbs = Breadcrumbs()
+    private val application = app
+
+    /** يسجّل خطأً غير قاتل (فشل حفظ أو تصدير أو استيراد) في السجل المحلي. لا يرمي استثناءات. */
+    fun logError(title: String, error: Throwable? = null, kind: LogKind = LogKind.ERROR) {
+        errorLog.record(kind, title, error, DeviceInfo.header(application, screen.toString()), breadcrumbs.snapshot())
+    }
 
     init {
         // تنظيف ما خلّفه انقطاع مفاجئ (مجلدات استيراد مؤقتة وملفات تصدير قديمة) دون تعطيل الواجهة.
@@ -43,7 +60,8 @@ class AppContainer(app: Application) {
         private set
 
     fun openEditor(loaded: LoadedProject) {
-        editor = EditorState(store, loaded)
+        breadcrumbs.add("فتح المحرر")
+        editor = EditorState(store, loaded) { message -> logError(message) }
         screen = Screen.Editor
     }
 

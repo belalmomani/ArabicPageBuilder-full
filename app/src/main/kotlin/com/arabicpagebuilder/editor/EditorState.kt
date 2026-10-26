@@ -22,7 +22,11 @@ import kotlinx.coroutines.withContext
 enum class SaveStatus { SAVED, PENDING, SAVING, ERROR }
 
 /** غلاف Compose فوق [EditorSession]: يحوّل تغيّراتها إلى حالة قابلة للمراقبة ويتولى الحفظ التلقائي. */
-class EditorState(private val store: ProjectStore, loaded: LoadedProject) {
+class EditorState(
+    private val store: ProjectStore,
+    loaded: LoadedProject,
+    private val reportError: (String) -> Unit = {},
+) {
     val projectId: String = loaded.id
     val projectName: String = loaded.data.name
 
@@ -89,6 +93,8 @@ class EditorState(private val store: ProjectStore, loaded: LoadedProject) {
         } else {
             saveStatus = SaveStatus.ERROR
             message = "تعذر حفظ المشروع. تغييراتك ما زالت مفتوحة في المحرر."
+            val err = result as? StoreResult.Err
+            reportError("فشل حفظ المشروع: ${err?.error}${err?.detail?.let { " ($it)" } ?: ""}")
         }
     }
 

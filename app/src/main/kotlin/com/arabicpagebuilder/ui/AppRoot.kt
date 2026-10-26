@@ -7,6 +7,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
@@ -20,9 +21,11 @@ fun AppRoot(container: AppContainer) {
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
         MaterialTheme {
             Surface(modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
+                LaunchedEffect(container.screen) { container.breadcrumbs.add("شاشة: ${container.screen}") }
                 when (container.screen) {
                     Screen.Home -> HomeScreen(container)
                     Screen.Settings -> SettingsScreen(container)
+                    Screen.ErrorLog -> LogScreen(container)
                     Screen.Editor -> {
                         val editor = container.editor
                         if (editor != null) EditorScreen(container, editor) else Text("لا يوجد مشروع مفتوح")

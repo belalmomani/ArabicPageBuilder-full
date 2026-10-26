@@ -59,6 +59,7 @@ private class PreviewData {
     @Volatile var assets: AssetSource? = null
     @Volatile var allowExternal: Boolean = false
     var lastHtml: String? = null
+    @Volatile var dead: Boolean = false
     var lastAllowExternal: Boolean? = null
     var pendingScrollY: Int = 0
 }
@@ -131,6 +132,14 @@ private fun createPreviewWebView(context: Context): WebView = WebView(context).a
         }
     }
     webViewClient = object : WebViewClient() {
+        // عملية عرض الويب انهارت (ذاكرة أو غيره): نسجّل الحدث ونمنع إغلاق التطبيق؛ تعود المعاينة بإعادة فتح التبويب.
+        override fun onRenderProcessGone(view: WebView?, detail: android.webkit.RenderProcessGoneDetail?): Boolean {
+            (view?.tag as? PreviewData)?.dead = true
+            val app = view?.context?.applicationContext as? com.arabicpagebuilder.PageBuilderApp
+            app?.container?.logError("انهارت عملية عرض المعاينة (crashed=${detail?.didCrash()})")
+            return true
+        }
+
         // لا تنقّل داخل المعاينة: الروابط لا تعمل هنا عمدًا.
         override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean = true
 
@@ -163,6 +172,7 @@ private fun createPreviewWebView(context: Context): WebView = WebView(context).a
 @SuppressLint("SetJavaScriptEnabled")
 private fun updatePreview(wv: WebView, site: GeneratedSite, assets: AssetSource?, allowExternal: Boolean) {
     val data = wv.tag as PreviewData
+    if (data.dead) return
     data.assets = assets
     data.allowExternal = allowExternal
     val script = site.mainJs

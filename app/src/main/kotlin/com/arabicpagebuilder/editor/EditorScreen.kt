@@ -152,7 +152,9 @@ fun EditorScreen(container: AppContainer, state: EditorState) {
                 busy = true
                 state.saveNow()
                 val tmp = File(ExportActions.exportsDir(context), "site-${System.nanoTime()}.zip")
+                container.breadcrumbs.add("تصدير ZIP")
                 val r = ExportActions.buildSiteZip(state, tmp)
+                if (r is ExportResult.Failure) container.logError("فشل تصدير ZIP: ${r.error} ${r.detail.orEmpty()}")
                 exportInfo = if (r is ExportResult.Success) ExportActions.copyToUri(context, tmp, uri) ?: ExportActions.describe(r) else ExportActions.describe(r)
                 tmp.delete()
                 busy = false
@@ -168,7 +170,10 @@ fun EditorScreen(container: AppContainer, state: EditorState) {
                 val r = withContext(Dispatchers.IO) { container.archive.exportProjectToFile(state.projectId, tmp) }
                 exportInfo = when (r) {
                     is StoreResult.Ok -> ExportActions.copyToUri(context, tmp, uri) ?: "تم حفظ نسخة من المشروع (${r.value} ملفًا). يمكنك استيرادها لاحقًا من الشاشة الرئيسية."
-                    is StoreResult.Err -> "فشل الحفظ: " + Messages.storeError(r.error, r.detail)
+                    is StoreResult.Err -> {
+                        container.logError("فشل حفظ نسخة المشروع: ${r.error} ${r.detail.orEmpty()}")
+                        "فشل الحفظ: " + Messages.storeError(r.error, r.detail)
+                    }
                 }
                 tmp.delete()
                 busy = false
@@ -180,7 +185,9 @@ fun EditorScreen(container: AppContainer, state: EditorState) {
             busy = true
             state.saveNow()
             val file = File(ExportActions.exportsDir(context), ExportActions.safeFileName(state.projectName) + ".zip")
+            container.breadcrumbs.add("مشاركة الموقع")
             val r = ExportActions.buildSiteZip(state, file)
+            if (r is ExportResult.Failure) container.logError("فشل مشاركة الموقع: ${r.error} ${r.detail.orEmpty()}")
             if (r is ExportResult.Success) {
                 ExportActions.shareFile(context, file, "application/zip")
                 if (r.warnings.isNotEmpty() || r.generationWarnings.isNotEmpty()) exportInfo = ExportActions.describe(r)
