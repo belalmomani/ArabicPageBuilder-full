@@ -64,12 +64,17 @@ object HtmlGenerator {
         |@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
     """.trimMargin()
 
-    fun generate(doc: PageDocument): GeneratedSite {
+    /**
+     * [editMode] = صفحة «لوحة التصميم» التحريرية: كل عنصر يحمل data-eid بمعرّفه، والعناصر المخفية عند الفتح تظهر
+     * (data-hidden بدل hidden) كي تُحدَّد وتُعدَّل، ولا سكربت تفاعلات، والمحتوى داخل #__stage للتكبير.
+     * لا يُستخدم هذا الوضع للتصدير أبدًا.
+     */
+    fun generate(doc: PageDocument, editMode: Boolean = false): GeneratedSite {
         val warnings = ArrayList<GenerationWarning>()
         val body = StringBuilder()
         val plan = InteractionScript.plan(doc, warnings)
         // نعلّم عناصر المحفّزات بالضغط (علامة داخلية لا تظهر للمستخدم) ليُعرض الزر/الرابط بلا رابط فعّالًا.
-        val renderRoot = markClickTriggers(doc.root, plan.clickTriggerIds)
+        val renderRoot = markTree(doc.root, plan.clickTriggerIds, editMode)
         for (child in renderRoot.children) render(child, 2, body, warnings, inForm = false)
 
         val dir = if (doc.direction == TextDirection.RTL) "rtl" else "ltr"
@@ -84,10 +89,14 @@ object HtmlGenerator {
             append("  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n")
             append("  <title>${HtmlEscape.text(title)}</title>\n")
             append("  <link rel=\"stylesheet\" href=\"css/style.css\">\n")
-            if (plan.script != null) append("  <script src=\"js/main.js\" defer></script>\n")
+            if (plan.script != null && !editMode) append("  <script src=\"js/main.js\" defer></script>\n")
             append("</head>\n")
-            append("<body class=\"${className(doc.root)}\">\n")
+            append("<body class=\"${className(doc.root)}\"")
+            if (editMode) append(" data-eid=\"${HtmlEscape.attr(doc.root.id)}\"")
+            append(">\n")
+            if (editMode) append("<div id=\"__stage\">\n")
             append(body)
+            if (editMode) append("</div>\n")
             append("</body>\n")
             append("</html>\n")
         }
@@ -97,7 +106,7 @@ object HtmlGenerator {
             files = LinkedHashMap<String, String>().apply {
                 put(INDEX_PATH, html)
                 put(CSS_PATH, css)
-                if (plan.script != null) put(JS_PATH, plan.script)
+                if (plan.script != null && !editMode) put(JS_PATH, plan.script)
             },
             warnings = warnings,
         )
@@ -162,24 +171,34 @@ object HtmlGenerator {
     private fun render(e: Element, depth: Int, out: StringBuilder, w: MutableList<GenerationWarning>, inForm: Boolean) {
         val start = out.length
         renderElement(e, depth, out, w, inForm)
-        if (e.props["hidden"]?.trim() == "true" && out.length > start) injectHidden(out, start)
+        if (out.length == start) return
+        val hidden = e.props["hidden"]?.trim() == "true"
+        val edit = e.props[EDIT_MARK] == "1"
+        val attrs = StringBuilder()
+        if (edit) attrs.append(" data-eid=\"").append(HtmlEscape.attr(e.id)).append('"')
+        if (hidden) attrs.append(if (edit) " data-hidden=\"1\"" else " hidden")
+        if (attrs.isNotEmpty()) injectAttrs(out, start, attrs.toString())
     }
 
-    private fun injectHidden(out: StringBuilder, start: Int) {
+    /** يضيف سمات إلى أول وسم من ناتج عنصر (بعد اسم الوسم مباشرة). */
+    private fun injectAttrs(out: StringBuilder, start: Int, attrs: String) {
         val open = out.indexOf("<", start)
         if (open < 0) return
         var i = open + 1
         while (i < out.length && out[i] != ' ' && out[i] != '>') i++
-        out.insert(i, " hidden")
+        out.insert(i, attrs)
     }
 
     private const val TRIGGER_MARK = "__trigger"
+    private const val EDIT_MARK = "__edit"
 
-    /** نسخة من الشجرة تحمل علامة داخلية على عناصر المحفّزات بالضغط؛ لا تُحفظ ولا تُعرض. */
-    private fun markClickTriggers(e: Element, ids: Set<String>): Element {
-        if (ids.isEmpty()) return e
-        val props = if (e.id in ids) e.props + (TRIGGER_MARK to "click") else e.props
-        return e.copy(props = props, children = e.children.map { markClickTriggers(it, ids) })
+    /** نسخة من الشجرة تحمل علامات داخلية (محفّزات الضغط، ووضع التحرير)؛ لا تُحفظ ولا تُعرض. */
+    private fun markTree(e: Element, clickIds: Set<String>, edit: Boolean): Element {
+        if (clickIds.isEmpty() && !edit) return e
+        var props = e.props
+        if (e.id in clickIds) props = props + (TRIGGER_MARK to "click")
+        if (edit) props = props + (EDIT_MARK to "1")
+        return e.copy(props = props, children = e.children.map { markTree(it, clickIds, edit) })
     }
 
     private fun renderElement(e: Element, depth: Int, out: StringBuilder, w: MutableList<GenerationWarning>, inForm: Boolean) {

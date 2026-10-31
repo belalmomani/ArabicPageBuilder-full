@@ -51,8 +51,8 @@ private enum class Device(val label: String, val widthDp: Int?) {
     DESKTOP("حاسوب (1280)", 1280),
 }
 
-private const val PREVIEW_HOST = "preview.invalid"
-private const val PREVIEW_BASE = "https://$PREVIEW_HOST/"
+internal const val PREVIEW_HOST = "preview.invalid"
+internal const val PREVIEW_BASE = "https://$PREVIEW_HOST/"
 
 /** بيانات المعاينة التي يقرؤها WebViewClient (يُستدعى بعضها من خيط خلفي). */
 private class PreviewData {
@@ -202,11 +202,11 @@ private fun updatePreview(wv: WebView, site: GeneratedSite, assets: AssetSource?
     }
 }
 
-private fun blocked() = WebResourceResponse("text/plain", "UTF-8", 403, "Blocked", emptyMap(), ByteArrayInputStream(ByteArray(0)))
+internal fun blocked() = WebResourceResponse("text/plain", "UTF-8", 403, "Blocked", emptyMap(), ByteArrayInputStream(ByteArray(0)))
 
-private fun notFound() = WebResourceResponse("text/plain", "UTF-8", 404, "Not Found", emptyMap(), ByteArrayInputStream(ByteArray(0)))
+internal fun notFound() = WebResourceResponse("text/plain", "UTF-8", 404, "Not Found", emptyMap(), ByteArrayInputStream(ByteArray(0)))
 
-private fun mimeOf(path: String): String = when (path.substringAfterLast('.', "").lowercase()) {
+internal fun mimeOf(path: String): String = when (path.substringAfterLast('.', "").lowercase()) {
     "png" -> "image/png"
     "jpg", "jpeg" -> "image/jpeg"
     "gif" -> "image/gif"

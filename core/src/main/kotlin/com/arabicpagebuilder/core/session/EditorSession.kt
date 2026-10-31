@@ -130,6 +130,13 @@ class EditorSession(
         return commit(DocumentEditor.setProperty(document, sel, key, v))
     }
 
+    /** يضبط عدة خصائص للعنصر المحدد في خطوة تراجع واحدة (مثل العرض والارتفاع معًا عند السحب بالمقبض). */
+    fun setProperties(values: Map<String, String?>): EditResult {
+        val sel = selectedId ?: return EditResult.Failure(EditError.ELEMENT_NOT_FOUND)
+        val cleaned = values.mapValues { (_, v) -> v?.takeIf { it.isNotBlank() } }
+        return commit(DocumentEditor.setProperties(document, sel, cleaned))
+    }
+
     fun removeSelected(): EditResult {
         val sel = selectedId ?: return EditResult.Failure(EditError.ELEMENT_NOT_FOUND)
         val parentId = document.root.findParent(sel)?.id

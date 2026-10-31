@@ -78,7 +78,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import kotlin.math.roundToInt
 
-private enum class Tab(val label: String) { DESIGN("التصميم"), PREVIEW("المعاينة"), INTERACT("التفاعل"), CODE("الكود") }
+private enum class Tab(val label: String) { DESIGN("التصميم"), CANVAS("اللوحة"), PREVIEW("المعاينة"), INTERACT("التفاعل"), CODE("الكود") }
 
 private enum class Panel { LIBRARY, PROPERTIES, MOVE }
 
@@ -247,11 +247,14 @@ fun EditorScreen(container: AppContainer, state: EditorState) {
                     }
                 }
             }
-            // التبويبات
-            Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // التبويبات (شريط قابل للتمرير لأن عددها خمسة)
+            Row(
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 for (t in Tab.entries) {
-                    if (t == tab) Button(onClick = {}, modifier = Modifier.weight(1f)) { Text(t.label) }
-                    else OutlinedButton(onClick = { tab = t }, modifier = Modifier.weight(1f)) { Text(t.label) }
+                    if (t == tab) Button(onClick = {}) { Text(t.label) }
+                    else OutlinedButton(onClick = { tab = t }) { Text(t.label) }
                 }
             }
             state.message?.let { msg ->
@@ -265,6 +268,12 @@ fun EditorScreen(container: AppContainer, state: EditorState) {
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 when (tab) {
                     Tab.DESIGN -> DesignTab(state, ctrl, panel, { panel = it }, onPick, ::performDrop)
+                    Tab.CANVAS -> CanvasTab(
+                        state,
+                        container.prefs.allowExternalPreview,
+                        onOpenProperties = { tab = Tab.DESIGN; panel = Panel.PROPERTIES },
+                        onOpenLibrary = { tab = Tab.DESIGN; panel = Panel.LIBRARY },
+                    )
                     Tab.PREVIEW -> PreviewTab(state, container.prefs.allowExternalPreview) { container.prefs.updateAllowExternalPreview(it) }
                     Tab.INTERACT -> InteractionsTab(state)
                     Tab.CODE -> CodeTab(state)

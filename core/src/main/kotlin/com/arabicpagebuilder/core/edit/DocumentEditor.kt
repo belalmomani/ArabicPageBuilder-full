@@ -70,6 +70,18 @@ object DocumentEditor {
         return ok(doc.copy(root = updated))
     }
 
+    /** يضبط عدة خصائص لعنصر واحد دفعة واحدة (قيمة null تحذف الخاصية). كلها أو لا شيء. */
+    fun setProperties(doc: PageDocument, id: String, values: Map<String, String?>): EditResult {
+        var current = doc
+        for ((k, v) in values) {
+            when (val r = setProperty(current, id, k, v)) {
+                is EditResult.Failure -> return r
+                is EditResult.Success -> current = r.document
+            }
+        }
+        return ok(current)
+    }
+
     // ---- التفاعلات ----
 
     /** يضيف قاعدة تفاعل (قد تكون غير مكتملة؛ الصلاحية تُفحص عند التوليد وتُعرض في المحرر). */
